@@ -1,0 +1,1211 @@
+ <meta charset="utf-8">
+<head>
+<title>My Integer Sequence Test</title>
+<link rel="stylesheet" href="d3.slider.css" />
+</head>
+<body>
+<div id="graph">
+</div>
+<div class="tabs">
+	<ul class="tabs-navigation">
+		<li><a href="#tab-status">Status</a></li>
+		<li><a href="#tab-console">Console</a></li>
+		<li><a href="#tab-about">About</a></li>
+	</ul>
+</div>
+<div class="tabs-content">        
+	<div id="tab-status"> 
+		<div id="extrainfo">
+			<p id="testp">Type the A-number of your preferred sequence here, defaults to A000040 the prime numbers; or type a word to see major related sequences and words</p>
+			<input type="textArea" id="inputSequence" value="A000040"/>
+			<input type="button" id="button1" value="Jump to this node" onclick="visualize();" />
+			<p id="gametext"></p>
+		</div>
+	</div>
+	<div  id="tab-console">
+	</div>
+	<div  id="tab-about">
+		<p>Visualizing data from <a href="http://oeis.org">The Online Encyclopedia of Integer Sequences</a>. Integer sequences are represented as nodes linked by cross-references on the website. You start at a sequence, traverse the graph along the connections by clicking, but can also type an A-number into the textbox to navigate to it. The green circle marks your position; core sequences are warm colors and others are cool colors, and hard sequences have sharper colors than easy ones. Hover your cursor on a sequence's circle to see a tool-tip of its information. Only sequences within 2 steps will be displayed at any time, and there's a soft number limit to avoid clutter.</p>
+		<p>Specific visual elements and options:</p>
+		<p>strongly connected components (calculated from cross-references as edges in the graph) are represented with colored disks around nodes. The more sequences a S.C.C. contains the bigger and more transparent is the disk.</p>
+		<p>In dynamic word clouds, you can click on a word to navigate to it like you click on integer sequence nodes; word size reflects total number of occurence, and word opacity is inversely related to the number of currently visible sequences it appeared in. In static word clouds, size only reflects the word frequency in the current selected sequence, and words that have recently appeared are shown in greyish colors while fresh words are more colorful.</p>
+		<p>Note: improved customization and schema handling will be in the next major version.</p>
+	</div>
+</div>
+
+
+
+</div>
+<style>
+#loading{
+position: absolute;
+right: 10px;
+width:400px;
+top:120px;
+font-size: 30px;
+}
+#extraInfo{
+position: absolute;
+right: 10px;
+width:400px;
+}
+.node {
+    stroke: #fff;
+    stroke-width: 1.5px;
+}
+.link {
+    stroke: #999;
+    stroke-opacity: .2;
+}
+
+.d3-tip {
+	width:300px;
+  line-height: 1;
+  font-weight: bold;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.7);
+  color: #fff;
+  border-radius: 2px;
+}
+.d3-tip a{
+  color: #fff;
+}
+.d3-slider-horizontal {
+    width: 350px;
+}  
+.player {
+fill: lime;
+fill-opacity: .2;
+}
+#gametext{
+font-weight: bold;
+  padding: 12px;
+}
+.tabs-content {
+    width:400px;
+    top:100px;
+	right:10px;
+    position:absolute;
+}
+.tabs {
+	right:10px;
+	top:40px;
+    position:absolute;
+    overflow:hidden;
+    width:400px;
+    margin:0;
+    padding:0;
+}
+ul.tabs-navigation{
+    margin:0;
+    padding:0;}
+
+ul.tabs-navigation li{
+    float:left;
+    margin:7px 0;
+    margin-right:2px;
+    list-style:none;
+}
+
+ul.tabs-navigation li a {
+    padding:10px 25px;
+    background:lightskyblue;
+    color:#000;
+    text-decoration:none;
+    -moz-border-radius-topleft: 5px;
+    -moz-border-radius-topright: 5px;    
+    -webkit-border-top-left-radius: 5px;
+    -webkit-border-top-right-radius: 5px;    
+    border-top-left-radius: 5px;    
+    border-top-right-radius: 5px;
+    display:block;
+}
+</style>
+<script src="jquery-2.2.1.js"></script>
+<script src="d3.js"></script>
+<script src="d3.tip.js"></script>
+<script src="d3.slider.js"></script>
+<script src="d3.layout.cloud.js"></script>
+<script src="mist.util.js"></script>
+<script>
+//mist.util.js: common utility functions like downloading an object or attribute
+
+var oeis=[]//indexed by oeis_id, default attributes only
+var words={};//indexed by text, used for now to store the nodes of words
+
+//all custom things are below: schema, functions that deal with all attributes, then each separate attribute's functions(get, compute and visualization)
+var schema={
+	keywords:{name:"keywords",type:"array",arity:1,original:true,toText:keywordsToText},//some original data need descriptions too
+	//coreSequenceIds:{name:"core sequence IDs",type:"object",arity:0,saved:true},//get function is not required if other functions do not expect to use it
+	dictionary:{type:"object",arity:0,get:getDictionary},//saved means we will load the json file and put it into the data field, say schema.dictionary.data; then get functions can use it. Now it'd not saved
+	wordsCount:{name:"word count",type:"object",arity:1,get:getWordsCount,toText:wordsCountToText,init:initWordsCount},
+	words:{type:"array",arity:1,get:getWords},
+	crossReferences:{name:"cross-references",type:"object",arity:2,get:getCrossReferences,toText:crossReferencesToText,init:initCrossReferences},
+	reverseCrossReferences:{name:"reverse cross-references",type:"object",arity:2,get:getReverseCrossReferences,toText:reverseCrossReferencesToText,init:initReverseCrossReferences},
+	wordsJaccardSimilarity:{type:"number",arity:2,get:getWordsJaccardSimilarity},
+	labels:{name:"labels",type:"object",arity:1,init:initLabels,get:getLabels},//used for an alternative version of wordcloud where words are moveable
+	stronglyConnectedComponent:{name:"strongly connected components",type:"object",arity:1,init:initStronglyConnectedComponent,get:getStronglyConnectedComponent,toText:sccToText},//not plural because one node belongs to one component
+	reverseWordsCount:{name:"reverse word count",type:"object",arity:0,init:initReverseWordsCount}//arity is 0 because words are not entities here
+};
+//get functions have the listed arity(number of arguments that are oeis ids), and return a value of the specified type
+
+
+var viz={
+//trying to minimize repetitive visualization customization code
+//note a confusing bug in d3.slider: must specify numeric width of the slider div, not things like auto, or it won't know the correct slider length
+gravity:{type:"number",name:"Graph gravity",value:0.1,max:0.5,min:0.01,step:0.01},//,onChange:function(){force.gravity(viz.gravity.value);}},
+wordsLimit:{type:"number",name:"Max number of words to display",value:25,min:1,max:50,step:1},//if no onChange is given, probably need to call navigate again
+sequencesLinkLength:{type:"number",name:"Link length between integer sequence nodes",value:60,min:20,max:100,step:10},
+sequenceWordLinkLength:{type:"number",name:"Link length between integer sequence and word nodes",value:60,min:20,max:100,step:10},
+showWordNodes:{type:"boolean",name:"Show words as nodes in the graph",value:true},
+textSize:{type:"number",name:"Text size for word nodes",value:20,min:10,max:40,step:1},
+showWordCloud:{type:"boolean",name:"Show words as word cloud background",value:false},
+showSCC:{type:"boolean",name:"Show strongly connected components as transparent disks",value:false}
+};
+
+//some copied code for tabs
+$('.tabs-content').hide();
+    var mytabs = [];
+    var mytabsContent = [];
+    $("ul.tabs-navigation a").each(function(){
+        if(this.pathname == window.location.pathname){
+            mytabs.push(this);
+            mytabsContent.push($(this.hash).get(0)); 
+        }
+         
+    });
+    
+    $(mytabs).click(function(){
+            
+            $('.tabs-content').show();
+        
+            $(mytabsContent).hide().filter(this.hash).show();
+            $(mytabs).removeClass("selected");
+            $(this).addClass("selected");
+
+                                    
+        return false;
+    }).filter(":first").click();
+
+
+
+//loading
+//needs to build up a sequence/queue of actions and load one by one asynchronously
+var loadQueue=[];var nextFile;var filesToLoad=0;var filesLoaded=0;var loadingProgressSelection;
+(function preLoad(){
+window.addEventListener('load', function(){loadAll();}, false);
+}());
+function loadAll()
+{
+	loadingProgressSelection=d3.select("#tab-status").append("p").attr("id","loading").text("Loading");
+	var button=document.getElementById("button1");button.onClick=visualize;button.value="Jump to this node";
+	loadQueue.push({type:"oeis",name:"all",number:1});filesToLoad++;
+	for(var i in schema)
+	{	schema[i].data={};
+		if(("saved" in schema[i])&&(schema[i].saved==true))
+		{
+			filesToLoad++;
+			loadQueue.push({type:"mist",name:i})//no file number means try no number suffixed file first; if it doesn't exist, try suffix 1 and as long as the file exists keep grabbing it and incrementing the suffix and combine all the files' data into one object
+		}
+	}
+	setTimeout(loadNextFile,0);
+}
+function loadNextFile()
+{
+	if(loadQueue.length==0){setTimeout(initAll,0);return;}
+	nextFile=loadQueue.shift();
+	if(nextFile.type=="oeis")
+	{
+		if(nextFile.name=="default")
+		{
+			d3.json("oeis/default/oeis_default_"+nextFile.number.toString()+".json",loadPartCallback);
+		}
+		else if(nextFile.name=="all")
+		{
+			d3.json("oeis/oeis_all_"+nextFile.number.toString()+".json",loadPartCallback);
+		}
+		else{console.error("unsupported oeis file for now");}
+		if(("number" in nextFile==false)||(nextFile.number==1)){filesLoaded++;}
+		loadingProgressSelection.text("Loading "+filesLoaded+" of "+filesToLoad+": OEIS "+nextFile.name);
+	}
+	else
+	{
+		if("number" in nextFile){d3.json("mist/"+nextFile.name+"/mist_"+nextFile.name+"_"+nextFile.number.toString()+".json",loadPartCallback);}
+		else{d3.json("mist/mist_"+nextFile.name+".json",loadWholeCallback);}
+		if(("number" in nextFile==false)||(nextFile.number==1)){filesLoaded++;}
+		loadingProgressSelection.text("Loading "+filesLoaded+" of "+filesToLoad+": "+schema[nextFile.name].name);
+	}
+}
+//the whole callback and the part callback behave differently on 404; if getting the whole file fails, it means the file should be in parts and it adds the corresponding first part of the file to the queue; if getting a part file fails it means the file has no more parts left so it doesn't add anything to the queue
+function loadWholeCallback(error,json)
+{
+	if (error)
+	{//this whole file doesn't exist, see if it's in parts
+		nextFile.number=1;filesLoaded--;
+		loadQueue.unshift(nextFile);
+	}
+	else
+	{
+		//for now assume oeis files are not whole files; only custom properties can be whole
+		schema[nextFile.name].data=json;
+	}
+	setTimeout(loadNextFile,0);
+}
+function loadPartCallback(error,json)
+{
+	if (error)
+	{//this partial file is not found, assume it's the end
+		if(nextFile.number==1){console.error("first part of file not found! "+nextFile.name);}
+	}
+	else
+	{
+		if(nextFile.type=="oeis")
+		{
+			for(var i in json)
+			{
+				oeis[json[i].oeis_id]=json[i];
+			}
+			nextFile.number++;
+			loadQueue.unshift(nextFile);
+		}
+		else
+		{
+			for(var i in json)
+			{
+				schema[nextFile.name].data[json[i].oeis_id]=json[i].value;//the saved file, if in batches, must be separated by ranges of oeis_id, so each file is an array with objects having oeis_ids and values
+			}
+			nextFile.number++;
+			loadQueue.unshift(nextFile);
+		}
+	}
+	setTimeout(loadNextFile,0);
+}
+
+
+//initializes custom attributes in order; must be executed before main visualize function
+var initQueue=[];var nextAttr;
+function initAll()
+{
+	for(i in schema)
+	{
+		if(typeof schema[i].init=="function")
+		{
+			initQueue.push(i);
+		}
+	}
+	setTimeout(initNextAttr,0);
+}
+function initNextAttr()
+{
+	if(initQueue.length==0){setTimeout(initCustomization,0);loadingProgressSelection.remove();return;}
+	nextAttr=initQueue.shift();loadingProgressSelection.text("Initializing "+schema[nextAttr].name);
+	setTimeout(initNextAttr2,50);
+}
+function initNextAttr2()
+{
+	schema[nextAttr].init();
+	setTimeout(initNextAttr,0);
+}
+
+function mySlide(evt, value,v) 
+{//v: used hack with eval to create functions
+	viz[v].value=value;
+	if(typeof(viz[v].onChange) =="function"){viz[v].onChange()};
+}
+function myCheck(evt, value,value2,v) 
+{//d3 doesn't pass the new value?
+	viz[v].value=!(viz[v].value);
+	if(typeof(viz[v].onChange) =="function"){viz[v].onChange()};
+}
+//customization console
+function initCustomization()
+{
+	var console=d3.select("#tab-console");
+	for(var v in viz)
+	{
+		if(viz[v].type=="number")
+		{
+			var myfun;
+			var slider=d3.slider().axis(true).min(viz[v].min).max(viz[v].max).step(viz[v].step).value(viz[v].value)
+			.on("slide",eval("myfun=function(evt,value){mySlide(evt,value,\""+v+"\")}"));
+			var mydiv=console.append("div");mydiv.append("p").text(viz[v].name);
+			mydiv.append("div").call(slider);
+			mydiv.append("p").style("display","none").text(v);
+		}
+		else
+		{
+			//for now just boolean
+			var myfun;
+			var mydiv=console.append("div");mydiv.append("p").text(viz[v].name);
+			mydiv.append("input").attr("type","checkbox").property("checked",viz[v].value).on("change",eval("myfun=function(evt,value,value2){myCheck(evt,value,value2,\""+v+"\")}"));
+			mydiv.append("p").style("display","none").text(v);
+		}
+	}
+	setTimeout(visualize,0);
+}
+
+
+//
+//main interface
+//now the player can be standing on different types of nodes: sequences, words, even strongly connected components?
+//and the different nodes have different drawing styles(words are text, sequences are circles) and different relations(inter-sequence relations and sequence-word relations)
+
+var visibleSequences={};
+var visibleWords={};
+//each entity type should have a visible list; later we should move this to a specific visualization module
+var currentNode={type:"oeis",id:40};//the type and id(either OEIS id or just word text) of the node that the user is "standing on"; now type can be oeis or word
+
+
+function parseInputNode()
+{
+//now supports both sequences and words
+	var temptext=document.getElementById("inputSequence").value;
+	if(temptext.match("^\\d+$"))
+	{
+		if(Number(temptext) in oeis)
+		{
+			return {type:"oeis",id:Number(temptext)};
+		}
+	}
+	if(temptext.match("^A\\d+$"))
+	{
+		if(Number(temptext.substring(1,temptext.length)) in oeis)
+		{
+			return {type:"oeis",id:Number(temptext.substring(1,temptext.length))};
+		}
+	}
+	if(temptext.match("^[A-Za-z]+$"))
+	{
+		if(temptext in words)
+		{
+			return {type:"word",id:temptext};
+		}
+	}
+	document.getElementById("inputSequence").value="Please input a correct A-number(with or without the A) or a word";
+}
+
+function calculateVisibility()
+{
+	visibleSequences={};visibleWords={};var id=currentNode.id;
+	//if standing on a sequence
+	if(currentNode.type=="oeis")
+	{
+		visibleSequences[id]=true;
+		//add top words
+		if(viz.showWordNodes.value)
+		{
+			var wc=getWordsCount(id);var top=Object.keys(wc).sort(function(a,b){return wc[a]-wc[b]}).slice(-20);
+			for(var i=0;i<top.length;i++)
+			{
+				if(top[i] in  visibleWords){visibleWords[top[i]]+=wc[top[i]];}else{visibleWords[top[i]]=wc[top[i]];}//keep track of how important is a word in the current display
+			}
+		}
+		var prob=Math.max((20-Object.keys(getCrossReferences(id)).length)*0.05,0.01);
+		for(var i in getCrossReferences(id))//have to randomly ignore some 2-step away nodes because it's too slow otherwise
+		{
+			visibleSequences[i]=true;
+			if(viz.showWordNodes.value)
+			{
+				var labels=getLabels(i);
+				for(var j in labels)
+				{
+					if(j in  visibleWords){visibleWords[j]+=labels[j];}else{visibleWords[j]=labels[j];}
+				}
+			}
+			
+			for(var j in getCrossReferences(i))
+			{
+				if(Math.random()<prob)visibleSequences[j]=true;
+			}
+		}
+		//add reverse cross references so player can always backtrack
+		var rcf=getReverseCrossReferences(id);
+		for(var i in rcf)
+		{
+			visibleSequences[i]=true;
+		}
+	}
+	if(currentNode.type=="word")
+	{
+		visibleWords[currentNode.id]=true;
+		var seqs=schema.reverseWordsCount.data[currentNode.id];
+		var sortedseqs=Object.keys(seqs).sort(function(a,b){return seqs[a]-seqs[b]});
+		var top=sortedseqs.splice(-30);
+		//use a soft node number limit, otherwise words like prime will be unusable
+		for(var i in top)
+		{
+			visibleSequences[i]=true;
+			if(viz.showWordNodes.value)
+			{
+				var labels=getLabels(i);
+				for(var j in labels)
+				{
+					if(j in  visibleWords){visibleWords[j]+=labels[j];}else{visibleWords[j]=labels[j];}
+				}
+			}
+		}//the remaining will only be visible with a small probability; for words like sloane (6000+ appearences in the first 10000)
+		var prob=Math.max((20/(sortedseqs.length+1),0.001));
+		for(var i=0;i<sortedseqs.length;i++)
+		{
+			if(Math.random()>=prob){continue;}
+			visibleSequences[sortedseqs[i]]=true;
+			if(viz.showWordNodes.value)
+			{
+				var labels=getLabels(sortedseqs[i]);
+				for(var j in labels)
+				{
+					if(j in  visibleWords){visibleWords[j]+=labels[j];}else{visibleWords[j]=labels[j];}
+				}
+			}
+		}
+	}
+	
+	//limit number of visible nodes: I'm not sure now how best to limit number of displayed sequences without a hierarchy, but discarding minor words is probably OK?
+	var top=Object.keys(visibleWords).sort(function(a,b){return visibleWords[a]-visibleWords[b];}).slice(-viz.wordsLimit.value);
+	var tempwords={};
+	for(var i in top){tempwords[top[i]]=visibleWords[top[i]];}//preserve the importance information for the word cloud
+	if((currentNode.type=="word")&&(currentNode.id in tempwords==false)){tempwords[currentNode.id]=visibleWords[currentNode.id];}
+	visibleWords=tempwords;
+}
+function describe(nums)
+{
+	var text="beginning with: ";
+	for(var i=0;text.length<40;i++)
+	{
+		if(i in nums){text+=nums[i]+", "}
+		else{break;}
+	}
+	text+="...";
+	return text;
+}
+function textDescription(d)
+{//used for tooltips
+	if(d.type=="oeis")
+	{
+		var oeis_id=d.id;var name=oeis[oeis_id].name;
+		var text="";var zeroes="000000";zeroes=zeroes.substring(oeis_id.toString().length);
+		text+="<a href=\"http://oeis.org/A"+zeroes+oeis_id.toString()+"\">A"+zeroes+oeis_id.toString()+"</a>, "+name+"</br>";
+		if("signed_terms" in oeis[oeis_id]){text+=describe(oeis[oeis_id].signed_terms);}else{text+=describe(oeis[oeis_id].unsigned_terms);}
+		for(var a in schema){if (typeof schema[a].toText=="function"){text+="</br>  "+schema[a].toText(oeis_id);}}
+		return text;
+	}
+	if(d.type=="word")
+	{
+		var text=d.id+" </br>appeared in the pages of "+Object.keys(schema.reverseWordsCount.data[d.id]).length+" integer sequences";
+		return text;
+	}
+}
+//main visualization
+//
+var width=800;
+var height=600;
+
+//custom rendering functions go here; TODO: general layout and visual style function for all attributes
+var nodes=[];//now nodes have type and id; links still only point to nodes objects
+var links=[];
+
+var fill = d3.scale.category20();
+
+var force = d3.layout.force().nodes(nodes).links(links)
+    .charge(nodeCharge).gravity(0.1).friction(0.8)
+    .linkDistance(linkDistance).linkStrength(linkStrength)
+	.on("tick", tick)
+    .size([width, height]);
+
+var svg = d3.select("#graph").append("svg")
+    .attr("width", width)
+    .attr("height", height);
+var linkSelection = svg.selectAll(".link");
+var nodeSelection = svg.selectAll(".node");
+var textSelection = svg.selectAll("text");
+var sccSelection=svg.selectAll(".scc");//circles around sequence nodes to show which ines are in the same strongly connected component
+var playerSelection=svg.selectAll(".player").data([currentNode]).enter().append("circle").attr("class","player").attr("r",25).attr("cx",-100);//hide it before loading completes
+var tip = d3.tip()
+    .attr('class', 'd3-tip')
+    .offset([-10, 0])
+    .html(textDescription);
+svg.call(tip);
+
+svg.append("defs").selectAll("marker")
+    .data(["suit", "licensing", "resolved"])
+  .enter().append("marker")
+    .attr("id", function(d) { return d; })
+    .attr("viewBox", "0 -5 10 10")
+    .attr("refX", 25)
+    .attr("refY", 0)
+    .attr("markerWidth", 6)
+    .attr("markerHeight", 6)
+    .attr("orient", "auto")
+  .append("path")
+    .attr("d", "M0,-5L10,0L0,5 L10,0 L0, -5")
+    .style("stroke", "#4679BD")
+    .style("opacity", "0.6");
+
+
+
+//game interface
+var gameVariables={score:0,visitedNodes:{},discoveredSimilarities:0};//visitednodes only list sequences?
+//
+
+
+function visualize()
+{
+	var node=parseInputNode();if(typeof node=="undefined"){return;}//if input is invalid don't do anything
+	if(node.type=="oeis")gameVariables.visitedNodes[node.id]=true;
+	currentNode=node;//do not modify attributes of currentNode because it may refer to the permanent node of a sequence or word; replace the whole object
+	redrawGraph();
+}
+function clickNavigate(node)
+{
+	navigate(node);
+}
+function navigate(node)
+{
+	//if(typeof currentNode=="number"){getWordsJaccardSimilarity(currentNode,n);}
+	currentNode=node;if(node.type=="oeis")gameVariables.visitedNodes[node.id]=true;
+	redrawGraph();
+}
+function redrawGraph()
+{
+	if(viz.showWordCloud.value){if(currentNode.type=="oeis")wordCloudStart(currentNode.id);}
+	else{if(wordcloud){wordcloud.remove();}}//TODO: move viz customization logic to one place
+	force.stop();
+	calculateVisibility();
+	nodes=[];
+	var i;var j;var sequenceNodes=[];var mynode;
+	for(i in visibleSequences)
+	{
+		if(typeof oeis[i]=="undefined"){continue;}
+		if(typeof oeis[i].node=="undefined"){oeis[i].node={type:"oeis",id:i};}
+		mynode=oeis[i].node;
+		nodes.push(mynode);sequenceNodes.push(mynode);
+	}
+	for(i in visibleWords)
+	{
+		if(typeof words[i]=="undefined"){continue;}
+		if(typeof words[i].node=="undefined"){words[i].node={type:"word",id:i,occurences:visibleWords[i]};}
+		nodes.push(words[i].node);
+	}
+	links=[];
+	
+	//inspired by tf-idf: make words that appeared in too many sequences displayed have lighter colors even though they may have more total occurences, so more specific words get sharper display
+	for(var i in visibleWords)
+	{
+		words[i].node.df=0;//appeared in # of sequences that are visible;
+	}
+	for(i in visibleSequences)
+	{
+		if(typeof oeis[i]=="undefined"){continue;}
+		mynode=oeis[i].node;
+		for(j in getCrossReferences(i))
+		{
+			if((j in visibleSequences)&&(j in oeis))
+			{
+				links.push({source: mynode, target:oeis[j].node});
+			}
+		}
+		for(var j in getWordsCount(i))
+		{
+			if((j in visibleWords)&&(j in words))
+			{
+				words[j].node.df++;//appeared in # of sequences that are visible; inspired by tf-idf, make unspecific words lighter
+				links.push({source: mynode, target:words[j].node});
+			}
+		}
+	}
+	nodeSelection=nodeSelection.data(nodes,key);nodeSelection.enter().append("circle").attr("class","node").attr("r",nodeRadius).style("fill",nodeColor).call(force.drag).on('click',clickNavigate).on('mouseover', tip.show).on('mouseout', tip.hide);nodeSelection.exit().remove();
+	linkSelection=linkSelection.data(links);linkSelection.enter().insert("line", ".node").attr("class","link").style("stroke","black").style("opacity",linkOpacity).style("marker-end","url(#suit)");linkSelection.exit().remove();
+	textSelection=textSelection.data(nodes,key);textSelection.enter().insert("text",".node").text(function(d){if(d.type=="word")return d.id;else return "";}).attr("dx",function(d){if(d.type=="word")return -d.id.length*(Math.sqrt(d.occurences)*4+viz.textSize.value)/4;else return 0;}).attr("font-size",function(d){if(d.type=="word")return Math.sqrt(d.occurences)*4+viz.textSize.value;else return viz.textSize.value;}).style("fill",randomColor).attr("opacity",function(d){return 0.8/(d.df+1)+0.2;}).on('click',clickNavigate).on('mouseover', tip.show).on('mouseout', tip.hide);textSelection.exit().remove();
+	//temporary fixed SCC display; we have too many customizable components in the console now
+	if(viz.showSCC.value){sccSelection=sccSelection.data(sequenceNodes,key);}else{sccSelection=sccSelection.data([]);}sccSelection.enter().insert("circle",".link").attr("class","scc").attr("r",function(d){return 5*Math.log(getSCC(d.id).length)+7}).style("fill",function(d){return color(getSCC(d.id)[0])}).style("opacity",function(d){return 0.6/(Math.log(getSCC(d.id).length+2)*Math.log(getSCC(d.id).length+2))+0.04});sccSelection.exit().remove();
+	force.nodes(nodes).links(links).start();
+	d3.select("#gametext").html("score: "+gameVariables.score+", visited "+Object.keys(gameVariables.visitedNodes).length+" nodes, discovered "+gameVariables.discoveredSimilarities+" similar pairs;</br>You are standing on: "+textDescription(currentNode));
+	
+}
+var color= d3.scale.category20();
+function randomColor(d)
+{
+	return color(d.id);
+}
+function key(d){
+  return d.type+d.id;
+}
+function linkX1(d)
+{
+	return d.source.x;
+}
+function linkY1(d)
+{
+	return d.source.y;
+}
+function linkX2(d)
+{
+	return d.target.x;
+}
+function linkY2(d)
+{
+	return d.target.y;
+}
+function tick(e) {
+var k = 10*e.alpha;
+
+    // Push sources left and targets right to form a weak tree.
+    linkSelection
+        .attr("x1",linkX1)
+        .attr("y1",linkY1)
+        .attr("x2",linkX2)
+        .attr("y2",linkY2);
+		//.each(function(d) { d.source.x -= k, d.target.x += k; });//makes things float away!
+
+    nodeSelection
+        .attr("cx", function(d) { return d.x; })
+        .attr("cy", function(d) { return d.y; });
+	sccSelection
+        .attr("cx", function(d) { return d.x; })
+        .attr("cy", function(d) { return d.y; });
+	textSelection.attr("x", function(d){return d.x;}).attr("y", function(d){return d.y;});
+	if(currentNode.type=="oeis")
+	{
+		playerSelection.attr("cx",oeis[currentNode.id].node.x).attr("cy",oeis[currentNode.id].node.y);
+		oeis[currentNode.id].node.x-=0.01*(oeis[currentNode.id].node.x-width/2);
+		oeis[currentNode.id].node.y-=0.01*(oeis[currentNode.id].node.y-height/2);
+	}
+	if(currentNode.type=="word")
+	{
+		playerSelection.attr("cx",words[currentNode.id].node.x).attr("cy",words[currentNode.id].node.y);
+		words[currentNode.id].node.x-=0.01*(words[currentNode.id].node.x-width/2);
+		words[currentNode.id].node.y-=0.01*(words[currentNode.id].node.y-height/2);
+	}
+}
+function nodeRadius(node)
+{
+	if(node.type=="oeis")
+	{
+		var len=Object.keys(getReverseCrossReferences(node.id)).length;
+		return Math.log(len+1)+4;
+	}
+	else
+	{
+		return 1;//Math.sqrt(node.occurences);
+	}
+}
+function nodeCharge(node)
+{
+	if(node.type=="oeis")
+	{
+		var len=Object.keys(getReverseCrossReferences(node.id)).length;
+		return -Math.sqrt(len)*5-80;
+	}
+	else
+	{return -15*viz.textSize.value*Math.min(Math.sqrt(node.occurences),10)-50;}
+}
+function nodeColor(node)
+{
+	if(node.type=="oeis")
+	{
+		var keywords=oeis[node.id].keywords;
+		if(keywords.indexOf("core")>=0)
+		{
+			//core sequences have warm colors for now
+			if(keywords.indexOf("hard")>=0){return "orangered";}
+			if(keywords.indexOf("easy")>=0){return "gold";}
+			if(keywords.indexOf("dead")>=0){return "lemonchiffon";}
+			return "orange";
+		}
+		//others have cool colors
+		if(keywords.indexOf("hard")>=0){return "dodgerblue";}
+		if(keywords.indexOf("easy")>=0){return "lightblue";}
+		if(keywords.indexOf("dead")>=0){return "lightsteelblue";}
+		return "deepskyblue";
+	}
+	else
+	{return "silver";}//temporary text background
+}
+function linkOpacity(link)
+{
+	//return 1;
+	//the link may be between two oeis nodes, or from one sequence to one word
+	if(link.target.type=="oeis")
+	{
+		return Math.max(Math.sqrt(getWordsJaccardSimilarity(link.source.id,link.target.id)),0.2);
+	}
+	else
+	{//target.id is a word
+		return Math.min(Math.sqrt(getWordsCount(link.source.id)[link.target.id])*0.02,0.5);
+	}
+}
+function linkDistance(link)
+{
+	//return 100;
+	if(link.target.type=="oeis")
+	{
+		return viz.sequencesLinkLength.value;//120*(1-getWordsJaccardSimilarity(link.source.id,link.target.id))+120;
+	}
+	else
+	{//target.id is a word
+		return viz.sequenceWordLinkLength.value;//Math.max((5-Math.sqrt(getWordsCount(link.source.id)[link.target.id]))*40,80);
+	}
+}
+function linkStrength(link)
+{
+	//return 0.5;
+	if(link.target.type=="oeis")
+	{
+		return getWordsJaccardSimilarity(link.source.id,link.target.id)*0.8+0.2;
+	}
+	else
+	{//target.id is a word
+		return Math.min(Math.sqrt(getWordsCount(link.source.id)[link.target.id])*0.02+0.1,0.2);
+	}
+}
+
+//TODO: test the word cloud and decouple it from specific attributes like the words
+var wordcloud, wordcloudSize = [width,height]; //Cloud Size
+var fillColor = d3.scale.category20b();
+var recentWords={};//for highlighting recently-appeared words in the word cloud even when user has gone to other nodes; word-># of turns it has not appeared; arbitrary cutoff at 10 turns; recent words are shown with varying shades of grey added to normal color?!
+var mixRGB = (function () {//adapted from copied code for averaging colors, usage: #rrggbb,#rrggbb,ratio of color1->#rrggbb
+  // Keep helper stuff in closures
+  var reSegment = /[\da-z]{2}/gi;
+  // If speed matters, put these in for loop below
+  function dec2hex(v) {return v.toString(16);}
+  function hex2dec(v) {return parseInt(v,16);}
+  return function (c1, c2 ,ratio) {
+    // Split into parts
+    var b1 = c1.match(reSegment);
+    var b2 = c2.match(reSegment);
+    var t, c = [];
+	if(typeof ratio=="undefined"){ratio=0.5;}
+    // Average each set of hex numbers going via dec
+    // always rounds down
+    for (var i=b1.length; i;) {
+      t = dec2hex( parseInt(hex2dec(b1[--i])*ratio + hex2dec(b2[i])*(1-ratio)));
+      // Add leading zero if only one character
+      c[i] = t.length == 2? '' + t : '0' + t; 
+    }
+    return  "#"+c.join('');
+  }
+}());
+function wordCloudStart(oeis_id) {
+	if(wordcloud){wordcloud.remove();}
+	var tempwords=[];var wc=getWordsCount(oeis_id);
+	var top=Object.keys(wc).sort(function(a,b){return wc[a]-wc[b];}).slice(-50);
+	for(var w in recentWords){recentWords[w]++;if(recentWords[w]>10)delete recentWords[w];}//increment time counter for old words first
+	for(var i=0;i<top.length;i++)
+	{
+		tempwords.push({text:top[i],times:wc[top[i]],age:(top[i] in recentWords?recentWords[top[i]]:10)});
+		recentWords[top[i]]=0;//0 turns ago; smaller age gets more greyish colors
+	}
+    d3.layout.cloud()
+        .size(wordcloudSize) 
+        .words(tempwords)
+        .font("Impact")
+        .fontSize(function(d) { return Math.min(d.times,30)*3+30;})
+        .rotate(function() { return 0; })
+        .on("end", drawWordCloud)
+        .start(); 
+}
+function drawWordCloud(words) {
+    wordcloud=svg.insert("g",".player").attr("transform", "translate(" +width/2+ "," + height/2+ ")");
+    wordcloud.selectAll("text")
+        .data(words)
+        .enter()
+        .append("text")
+        .style("font-size", function(d) { return Math.min(d.times,30)*3+20+ "px"; })
+        .style("fill", function(d) { return mixRGB(fillColor(d.text.toLowerCase()),"#888888",d.age/10); })//lesser age is more grey
+		.style("opacity",function(d) { return Math.min(d.times/10+0.3,0.5);})//because averaging with white makes them lighter
+        .attr("text-anchor", "middle")
+		.attr("transform", function(d, i) {
+        if(i == 0){
+            return "translate(" + [0, 0] + ")rotate(" + 0 + ")";    //handle first element
+        }else{
+            return "translate(" + [d.x, d.y] + ")rotate(" + d.rotate + ")"; //handle the rest
+        }
+    })
+    .text(function(d) { return d.text; });
+}
+
+
+
+//TODO: custom attribute visual style functions?
+
+
+//individual custom property/relation functions start here
+
+//cross-ref functions, too much repeating code to be inline
+var fieldNameCharMap={oeis_id:'I',unsigned_terms:'S',signed_terms:'V',name:'N',references:'D',comments:'C',links:'H',formulas:'F',cross_references:'Y',author:'A',offset:'O',programs_maple:'p',programs_mathematica:'t',programs_other:'o',revisions:'E',examples:'e',keywords:'K'}
+function getFieldName(headerchar)
+{
+	for(var name in fieldNameCharMap){if (fieldNameCharMap[name]==headerchar){return name;}}
+	console.error("unknown line header: "+headerchar);
+}
+function getHeaderCharacter(fieldname)
+{
+	return(fieldNameCharMap[fieldname]);
+}
+function accumulateRefs(refs,id)
+{
+	if (refs.hasOwnProperty(Number(id.substring(1)))==false){//to avoid leading zero problems
+ 
+            refs[Number(id.substring(1))]={f:getHeaderCharacter(refs.field),ln:refs.linenumber};
+        }
+        return refs;
+}
+function extractCrossReferences(str,refs,field)
+{
+	var templines=str.split("\n");
+	var pattern = /A\d+/g;
+    var matches;
+	for(var i=0;i<templines.length;i++)
+	{
+		matches=templines[i].match(pattern);
+		refs.field=field;refs.linenumber=i;//hack to get those saved in the relation objects through reduce
+		if(matches!=null){refs=matches.reduce(accumulateRefs,refs)};
+	}
+    return refs;
+}
+function computeCrossReferences(oeis_id)
+{
+	var refs={};//hack to pass source id to all generated relation objects
+	if(oeis[oeis_id].hasOwnProperty("name")){refs=extractCrossReferences(oeis[oeis_id].name,refs,"name");}
+	if(oeis[oeis_id].hasOwnProperty("cross_references")){refs=extractCrossReferences(oeis[oeis_id].cross_references,refs,"cross_references");}
+	//name and cfs have higher precedence
+	if(oeis[oeis_id].hasOwnProperty("comments")){refs=extractCrossReferences(oeis[oeis_id].comments,refs,"comments");}
+	if(oeis[oeis_id].hasOwnProperty("references")){refs=extractCrossReferences(oeis[oeis_id].references,refs,"references");}
+	if(oeis[oeis_id].hasOwnProperty("examples")){refs=extractCrossReferences(oeis[oeis_id].examples,refs,"examples");}
+	if(oeis[oeis_id].hasOwnProperty("links")){refs=extractCrossReferences(oeis[oeis_id].links,refs,"links");}
+	if(oeis_id in refs){delete refs[oeis_id];}//not allowing self-loops
+	for(var id in refs){if(id in oeis==false)delete refs[id];}
+	delete refs.field; delete refs.linenumber;//remove temporary hack attributes
+    return refs;//now the relation type object does not contain its own source id or type information; add it if needed
+}
+function initCrossReferences()
+{
+	var data=schema.crossReferences.data;
+	for(var id in oeis)
+	{
+		data[id]=computeCrossReferences(id);//this only returns targets that are in the loaded data, so references after the 10000th are ignored
+	}
+}
+function getCrossReferences(id1, id2)
+{//from the given sequence to other sequences
+	if(id1 in schema.crossReferences.data==false){console.error("relation not found");schema.crossReferences.data[id1]=[];}
+	if(typeof id2 =="undefined"){return schema.crossReferences.data[id1];}
+	if(id2 in schema.crossReferences.data[id1]==false){return undefined;}
+	return schema.crossReferences.data[id1][id2];
+}
+function crossReferencesToText(id)
+{var cr=getCrossReferences(id);return "Cross-references "+Object.keys(cr).length+" integer sequences";}
+
+//reverse cross references, used for drawing reverse arrows and calculating importance on a log scale
+
+function initReverseCrossReferences()
+{//should be run after cross-references initialization. TODO: add dependency and ordering?
+	var orig=schema.crossReferences.data;
+	if(!schema.reverseCrossReferences.data){schema.reverseCrossReferences.data={};}
+	var data=schema.reverseCrossReferences.data;
+	for(var id in oeis)
+	{
+		if(!data[id]){data[id]={};}
+		if(orig[id])
+		{
+			for(var id2 in orig[id])
+			{
+				if(id2 in data==false)
+				{
+					data[id2]={};
+				}
+				data[id2][id]=orig[id][id2];
+			}
+		}
+		else{console.log("dependency not initialized");break;}
+	}
+}
+function getReverseCrossReferences(id1, id2)
+{//from the given sequence to other sequences
+	if(id1 in schema.reverseCrossReferences.data==false){console.error("relation not found");schema.reverseCrossReferences.data[id1]={};}
+	if(typeof id2 =="undefined"){return schema.reverseCrossReferences.data[id1];}
+	if(id2 in schema.reverseCrossReferences.data[id1]==false){return undefined;}
+	return schema.reverseCrossReferences.data[id1][id2];
+}
+function reverseCrossReferencesToText(id)
+{var cr=getReverseCrossReferences(id);return "Is cross-referenced by "+Object.keys(cr).length+" integer sequences";}
+
+//word Jaccard distance
+//needs a sanitized dictionary which we build on the fly
+var dictionaryThreshold=100;//how many times a "word" has to appear in the data for it to be considered meaningful
+function getDictionary()
+{
+	return schema.dictionary.data;
+}
+function normalizeWord(word)
+{
+	word=word.toLowerCase();
+	//numbers are arguably useful identifiers for OEIS so I do not remove those for now
+	return word;
+}
+var allowedWords={"pi":true,"set":true,"exp":true,"gcd":true,"sin":true,"six":true,"psi":true,"chi":true,"cos":true,"max":true,"tau":true};
+var ignoredWords={"number":true,"of":true,"the":true,"sequences":true,"with":true,"theory":true,"are":true,"this":true,"one":true,"cf":true,"gives":true,"for":true,"which":true,"also":true,"in":true,"dec":true,"apr":true,"values":true,"and":true,"at":true,"oct":true,"et":true,"al":true,"mathematical":true,"mathematics":true,"co":true,"numbers":true,"pp":true,"press":true,"has":true,"table":true,"de":true,"new":true,"integer":true,"academic":true,"includes":true,"sequence":true,"encyclopedia":true,"href":true,"txt":true,"terms":true,"from":true,"by":true,"aug":true,"sep":true,"http":true,"www":true,"org":true,"math":true,"dx":true,"doi":true,"finite":true,"journal":true,"vol":true,"no":true,"html":true,"given":true,"initial":true,"pdf":true,"other":true,"all":true,"edu":true,"world":true,"mathworld":true,"com":true,"wikipedia":true,"en":true,"wiki":true,"index":true,"entries":true,"related":true,"to":true,"is":true,"length":true,"th":true,"using":true,"than":true,"see":true,"it":true,"an":true,"problem":true,"that":true,"equal":true,"between":true,"set":true,"mar":true,"have":true,"each":true,"its":true,"we":true,"be":true,"example":true,"then":true,"there":true,"can":true,"only":true,"or":true,"since":true,"start":true,"not":true,"form":true,"because":true,"more":true,"on":true,"even":true,"any":true,"those":true,"these":true,"after":true,"second":true,"first":true,"into":true,"part":true,"whose":true,"same":true,"end":true,"if":true,"jul":true,"list":true,"ca":true,"so":true,"starts":true,"term":true,"arxiv":true,"abs":true,"https":true,"right":true,"left":true,"starting":true,"exp":true,"amp":true,"some":true,"arrays":true,"integers":true,"where":true,"value":true,"when":true,"such":true,"every":true,"oeis":true,"rec":true,"function":true,"as":true,"having":true,"over":true,"noe":true,"parts":true,"feb":true,"equals":true,"may":true,"2n":true,"row":true,"times":true,"functions":true,"jun":true,"jan":true,"their":true,"htm":true,"nov":true,"but":true,"defined":true,"rows":true,"different":true,"up":true,"corresponding":true,"array":true,"let":true,"natural":true,"both":true,"read":true,"diagonal":true,"contains":true,"column":true,"columns":true,"least":true,"begins":true,"similar":true,"non":true,"next":true,"antidiagonal":true,"written":true,"springer":true,"verlag":true,"tables":true,"science":true,"handbook":true,"amer":true,"link":true,"known":true,"page":true,"monthly":true,"either":true,"note":true,"called":true,"was":true,"does":true,"contain":true,"would":true,"like":true,"always":true,"obtained":true,"generated":true,"therefore":true,"although":true,"automatic":true,"cambridge":true,"univ":true,"volume":true,"proc":true,"mathematica":true,"definition":true,"must":true,"thus":true,"uwaterloo":true,"journals":true,"step":true,"structure":true,"generating":true,"article":true,"papers":true,"pages":true,"scanned":true,"copy":true,"another":true,"preprint":true,"gary":true,"proof":true,"appears":true,"applied":true,"introduction":true,"many":true,"omar":true,"pol":true,"theorem":true,"del":true,"case":true,"comments":true,"problems":true,"inria":true,"ecs":true,"taken":true,"get":true,"occurs":true,"occur":true,"once":true,"lang":true,"university":true,"based":true,"conjectures":true,"give":true,"general":true,"comment":true,"without":true,"diagonals":true,"consider":true,"otherwise":true,"neilsloane":true,"will":true,"last":true,"version":true,"found":true,"about":true,"computed":true,"program":true,"applications":true,"certain":true,"being":true,"following":true,"hence":true,"entry":true,"large":true,"properties":true,"per":true,"followed":true,"zhi":true,"associated":true,"greater":true,"previous":true,"within":true,"do":true,"indices":true,"add":true,"counted":true,"counts":true,"pri":true,"under":true,"property":true,"possible":true,"here":true,"listed":true,"down":true,"compute":true,"used":true,"few":true,"eventually":true,"commands":true};
+//manually compiled from the words that appear 2000+ times by choosing those I think are not very indicative; this is bound to be subjective. TODO: more analysis on word frequency and relevance, or allowing user adjustment of word importance or spelling normalization
+function filterWord(word)
+{
+	if((word.length<4)&&(word in allowedWords == false))return false;
+	if(word in ignoredWords)return false;
+	if(word.length>16)return false;//very long words are usually not words
+	return true;
+}
+function removeLinks(text)
+{//returns text stripped of link tag and URL so they don't interfere with word extraction
+	var mytext=text.replace(/<a\b[^>]*>/g,"").replace(/<\/a>/g,"");
+	return mytext;
+}
+function accumulateWord(stats,word)
+{
+	if ( stats.hasOwnProperty( word ) ) {
+ 
+            stats[ word ] = stats[ word ] + 1;
+        } else {
+            stats[ word ] = 1;
+        }
+        return stats;
+}
+function wordsCount(str,counts)
+{
+	//counts words in a single string
+	//TODO: use better word recognition than this
+	var pattern = /[A-Za-z]{2,}/g;
+    var matches = str.match( pattern );
+    if(matches!=null){matches=matches.map(normalizeWord);matches=matches.filter(filterWord);counts=matches.reduce(accumulateWord, counts);schema.dictionary.data=matches.reduce(accumulateWord,schema.dictionary.data);}
+    return counts;
+}
+function computeWordsCount(oeis_id)
+{
+	//computeXXX functions are for custom properties; they return a value - a simple number or string, or an object
+	//this one computes all unique words in all natural language fields(name, comments, references, cross-references, examples, links except url)
+	var counts={};
+	if(oeis[oeis_id].hasOwnProperty("name")){counts=wordsCount(oeis[oeis_id].name,counts);}
+	if(oeis[oeis_id].hasOwnProperty("cross_references")){counts=wordsCount(oeis[oeis_id].cross_references,counts);}
+	//name and cfs have higher precedence
+	if(oeis[oeis_id].hasOwnProperty("comments")){counts=wordsCount(oeis[oeis_id].comments,counts);}
+	if(oeis[oeis_id].hasOwnProperty("references")){counts=wordsCount(oeis[oeis_id].references,counts);}
+	if(oeis[oeis_id].hasOwnProperty("examples")){counts=wordsCount(oeis[oeis_id].examples,counts);}
+	if(oeis[oeis_id].hasOwnProperty("links")){counts=wordsCount(removeLinks(oeis[oeis_id].links),counts);}//to avoid weird URL segments getting into the dictionary
+    return counts;
+}
+function initWordsCount()
+{
+	var data=schema.wordsCount.data;
+	for(var id in oeis)
+	{
+		data[id]=computeWordsCount(id);
+	}
+	//for now also initialize the words object map
+	for(var i in schema.dictionary.data)
+	{
+		words[i]={text:i};
+	}
+}
+function wordsCountToText(id)
+{
+	var wc=schema.wordsCount.data[id];
+	if(Object.keys(wc).length==0){return "has no relevant words recognized";}
+	var sorted=Object.keys(wc).sort(function(a,b){return wc[b]-wc[a];});
+	return "has "+Object.keys(wc).length+" relevant distinct words, and the most frequent one is "+sorted[0];
+}
+function getWordsCount(oeis_id)
+{//filters on the fly so that the threshold can be adjusted by the user
+	var counts=schema.wordsCount.data[oeis_id];
+	for(j in counts)
+	{
+		if(schema.dictionary.data[j]<dictionaryThreshold){delete counts[j];}
+	}
+	return counts;
+}
+function getWords(oeis_id)
+{
+	return Object.keys(getWordsCount(oeis_id));
+}
+function intersectionCount(obj1,obj2)
+{
+	var i=0;var word;
+	for(word in obj1)
+	{
+		if(word in obj2)
+		{
+			i++;
+		}
+		
+	}
+	return i;
+}
+function unionCount(obj1,obj2)
+{
+	var i=0;var word;
+	for(word in obj1)
+	{
+		if(word in obj2==false)
+		{
+			i++;
+		}
+	}
+	for(word in obj2)
+	{i++;}
+	return i;
+}
+function getWordsJaccardSimilarity(id1,id2)
+{
+	//only compute for queried pairs and save them
+	if(id1 in schema.wordsJaccardSimilarity.data==false){schema.wordsJaccardSimilarity.data[id1]=[];}
+	if(id2 in schema.wordsJaccardSimilarity.data[id1]==false)
+	{
+		var result=intersectionCount(getWordsCount(id1),getWordsCount(id2))/unionCount(getWordsCount(id1),getWordsCount(id2));
+		if((result>=0)==false){result=0;}//let NaN default to 0 for now
+		//TODO: for now part of the game logic is here; split it if possible
+		schema.wordsJaccardSimilarity.data[id1][id2]=result;
+		if(result>0.2)
+		{
+			//add reciprocal edge so the player can't "discover" the reverse edge again
+			if(id2 in schema.wordsJaccardSimilarity.data==false){schema.wordsJaccardSimilarity.data[id2]=[];}
+			if(id2 in schema.wordsJaccardSimilarity.data[id1]==false){schema.wordsJaccardSimilarity.data[id2][id1]=result;}
+			gameVariables.discoveredSimilarities++;gameVariables.score+=1;
+		}
+	}
+	return schema.wordsJaccardSimilarity.data[id1][id2];
+}
+
+function initLabels()
+{//for now try a simple frequency of words
+	var data=schema.labels.data;
+	var tempwords;var wc;var top;
+	for(var id in oeis)
+	{
+		tempwords={};
+		wc=getWordsCount(id);
+		top=Object.keys(wc).sort(function(a,b){return wc[a]-wc[b];}).slice(-10);
+		for(var i=0;i<top.length;i++){tempwords[top[i]]=wc[top[i]];}
+		data[id]=tempwords;
+	}
+}
+function getLabels(id)
+{
+	return schema.labels.data[id];
+}
+
+//
+function sccToText(id)
+{
+	return "it belongs to a strongly connected component with "+getSCC(id).length+" sequences";
+}
+function getSCC(id)
+{
+	return schema.stronglyConnectedComponent.data[id];
+}
+function getStronglyConnectedComponent(id)
+{
+	return schema.stronglyConnectedComponent.data[id];
+}
+var DFStime;var DFSpostorder;
+function initStronglyConnectedComponent()
+{
+	var data=schema.stronglyConnectedComponent.data;
+	DFSpostorder=[];DFStime=0;
+	for(var id in oeis)//DFS on reverseCrossRefs
+	{
+		if(!oeis[id].v1){myDFS(id,getReverseCrossReferences,"v1");}
+	}
+	var globalorder=DFSpostorder;
+	var components=0;
+	for(var i=globalorder.length-1;i>=0;i--)
+	{
+		if("v2" in oeis[globalorder[i]] ==false)
+		{
+			DFSpostorder=[];myDFS(globalorder[i],getCrossReferences,"v2");
+			components++;
+			for(var j=0;j<DFSpostorder.length;j++)
+			{
+				data[DFSpostorder[j]]=DFSpostorder;//use the array containing all ids in the s.c.c. as the data object representing the s.c.c., so two-way finding is possible
+			}
+		}
+	}
+	console.log("there are "+components+" strongly connected components.");
+}
+function myDFS(id,adjfunc,visited)//visited is a string used as key to mark the sequence object, to be reusable; returns an array of explored ids in post order
+{
+	var refs;
+	refs=adjfunc(id);DFStime++;oeis[id][visited]=true;
+	for(var i in refs)
+	{
+		if(oeis[i][visited]){}
+		else{myDFS(i,adjfunc,visited);}
+	}
+	DFStime++;DFSpostorder.push(id);
+}
+
+
+
+//reverse word lookup
+function getReverseWordsCount(id)
+{
+	return schema.reverseWordsCount.data[id];
+}
+function initReverseWordsCount()
+{
+	var data=schema.reverseWordsCount.data;
+	for (var i in oeis)
+	{
+		var wc=getWordsCount(i);
+		for(var w in wc)
+		{
+			if(w in data)
+			{
+				data[w][i]=wc[w];
+			}
+			else
+			{
+				data[w]={};data[w][i]=wc[w];
+			}
+		}
+	}
+}
+
+
+function initReverseIntegersCount()
+{
+	var data=schema.reverseIntegersCount.data;
+	for (var i in oeis)
+	{
+		for(var j in oeis[i].unsigned_terms)
+		{
+			k=oeis[i].unsigned_terms[j];
+			if((k<0)||(k>Number.MAX_SAFE_INTEGER))
+			{continue;}
+			if(k in data)
+			{
+				if(i in data[k]){data[k][i]+=1;}else{data[k][i]=1;}
+			}
+			else
+			{
+				data[k]={};data[k][i]=1;
+			}
+		}
+	}
+}
+
+
+
+
+
+
+
+//styles for original data
+function keywordsToText(id)
+{
+	var keywords=oeis[id].keywords;
+	if(keywords.length==0){return "has no keywords"}
+	if(keywords.length==1){return "has only one keyword: "+keywords[0];}
+	var text="";
+	for(var i in keywords){text+=" "+keywords[i]+",";}
+	return "has the keywords"+text;
+}
+</script>
+</body>
+
