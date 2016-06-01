@@ -1,0 +1,243 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>Haunted Party Game</title>
+    <script src="core_libs/d3.js"></script>
+    <script src="core_libs/EEVisualize.js"></script>
+    <script src="core_libs/object_hash.js"></script>
+	
+    <script data-main="core_libs/common" src="core_libs/require.js"></script>
+
+    <script src="core_libs/jquery-2.2.1.js"></script>
+    <script src="core_libs/underscore.js"></script>
+    <script src="core_libs/ensembleInit.js"></script>
+    <script src="core_libs/mcts.js"></script>
+    <script src="core_libs/board.js"></script>
+    <script src="core_libs/mctsInit.js"></script>
+    <script src="core_libs/mctsFunctions.js"></script>
+    <script>
+        require(['common'], function () {
+            require(['cif', '_cif']);
+        });
+    </script>
+    <!--<script type='text/javascript' src='https://ssl-webplayer.unity3d.com/download_webplayer-3.x/3.0/uo/jquery.min.js'></script>-->
+    <script type="text/javascript">
+        var unityObjectUrl = "http://webplayer.unity3d.com/download_webplayer-3.x/3.0/uo/UnityObject2.js";
+        if (document.location.protocol == 'https:')
+            unityObjectUrl = unityObjectUrl.replace("http://", "https://ssl-");
+        document.write('<script type="text\/javascript" src="' + unityObjectUrl + '"><\/script>');
+    </script>
+	<script src="core_libs/unityInit.js"></script>
+    <script src="core_libs/EnsembleEngine.js"></script>
+	<script src="core_libs/partytime.js"></script>
+    <link rel="stylesheet" href="WebGame.css"/>
+</head>
+<body>
+
+
+
+
+<div id="main">
+	<!-- with all content shown in graph visualization, I think we don't need so may rows and cols so removed bootstrap, and moved the unity part eariler in the code to use pure CSS layout -->
+	<div style="width:800px;height:100%;float:right;">
+		<div class="content">
+			<div id="unityPlayer">
+				<div class="missing">
+					<a href="http://unity3d.com/webplayer/" title="Unity Web Player. Install now!">
+						<img alt="Unity Web Player. Install now!"
+							 src="http://webplayer.unity3d.com/installation/getunity.png" width="193" height="63"/>
+					</a>
+				</div>
+				<div class="broken">
+					<a href="http://unity3d.com/webplayer/"
+					   title="Unity Web Player. Install now! Restart your browser after install.">
+						<img alt="Unity Web Player. Install now! Restart your browser after install."
+							 src="http://webplayer.unity3d.com/installation/getunityrestart.png" width="193"
+							 height="63"/>
+					</a>
+				</div>
+			</div>
+		</div>
+	</div>
+	<div id="tabs">
+		<!-- Nav tabs -->
+		<div id="tabs-navigation">
+		<a class="navtab" href="#characters">Characters</a>
+		<a class="navtab" href="#socialgraph">Social Graph</a>
+		<a class="navtab" href="#gamelog">Game Log</a>
+		<a class="navtab" href="#mcts">Strategy Analysis</a>
+		<a class="navtab" href="#editor">Rules Editor</a>
+		</div>
+		<!-- Tab panes -->
+		<div id="tabs-content">
+			<div id="characters">
+				<div id="characterSelect" style="display:none">Examine character:
+					<div id="ann">Ann<img src="img/ann.png"/></div>
+					<div id="bob">Bob<img src="img/bob.png"/></div>
+					<div id="carlos">Carlos<img src="img/carlos.png"/></div>
+					<div id="dre">Dre<img src="img/dre.png"/></div>
+					<div id="eve">Eve<img src="img/eve.png"/></div>
+                </div>
+				<div id="characters-content"></div>
+			</div>
+			<div id="socialgraph">
+				<div id="graph-console"></div>
+				<div id="graph-canvas"></div>
+			</div>
+			<div id="gamelog">
+				<div id="updates"></div>
+				
+				<div id="updates-old"><p>Older logs:</p></div>
+			</div>
+			<div id="mcts">
+				<button type="button" class="btn btn-primary" onclick="mctsInit()">Initialize AI</button>
+				<button type="button" class="btn btn-primary" onclick="recommendMove()">Recommend Move</button>
+				<button type="button" class="btn btn-primary" onclick="showWinningGame()">Full Game Winning Moves</button>
+				<div id="moveText"></div>
+				<div id="winningGame"></div>
+			</div>
+			<div id="editor">authoring tools</div>
+		</div>
+	</div>
+</div>
+
+<div id="splashscreen">
+    <div class="panel panel-primary">
+        <div class="panel-heading">
+            <h1 class="panel-title">Haunted Party Time!</h1>
+        </div>
+        <div class="panel-body">
+            <div class="text-center">
+                <h2><img src="images/ghost.png" style="width:50px;height:50px;"/>The house you haunt is under attack!<img src="images/ghost.png" style="width:50px;height:50px;"/></h2>
+            </div>
+            <div class="text-left">
+                <h4>
+                    <p>
+                        Not really, it's just a bunch of people having a party. Seems they forgot that you (the ghost) are already "living" here and you hate people!
+                    </p>
+                    <p>
+                        You want to kick the unwanted guests out, but sadly, you can't have any direct physical interaction
+                        with them. However, you can POSSESS the invitees (one at a time) and use them to perform actions
+                        that accomplish your goal: <b>Make all the guests leave</b>.
+                    </p>
+                    <p>
+                        When someone leaves, his/her family and friends will also feel bad, but enemies will feel better; use this to make them leave more easily!
+                    </p>
+                    <p>
+                        Characters also have moods and traits that will influence how they respond to actions.
+                        You want to <b>leverage these social facts</b> in order to make the guests leave in as few turns
+                        as possible.
+                    </p>
+                    <p>
+                        <b>For Example:</b> Ann might be timid person, which means insulting her will be less effective
+                        than
+                        making her dance, which will really embarrass her! <img src="images/embarrassed.png"
+                                                                                style="width:35px;height:35px;"/>
+                    </p>
+                    <p>
+                        Guests will leave once they reach the extreme of a mood (too angry, too bored, etc.)
+                    </p>
+                    <p>
+                        Since, as you know, possessing people is pretty exhausting, you only have 15 actions in this
+                        level to make guests leave the party.
+                    </p>
+                </h4>
+            </div>
+        </div>
+    </div>
+	 <p>Please Help by Participating in our Research Study</p>
+        <a target="_blank" href="http://goo.gl/forms/TpmjUmujNi">Pre-Game Questionnaire</a>
+	<p>Please input a user name so we can save your achievements:</p>
+	<input type="text" value="" id="user"/>
+	<input type="button" value="Submit" onClick="submitUser();"/>
+	<p id="userinputfeedback"></p>
+</div>
+
+<script>
+
+function displaySplashScreen()
+{//TODO: display the relationships and character pictures more automatically
+	document.getElementById("splashscreen").style.display="none";//debug
+}
+displaySplashScreen();
+function submitUser()
+{
+	var username=document.getElementById("user").value;
+	if((username.length<1)||(username.length>20)){document.getElementById("userinputfeedback").innerHTML="name must be between 1 and 20 characters"}
+	else
+	{
+		document.getElementById("splashscreen").style.display="none";
+	}
+}
+
+
+    $(function () {
+
+        var disableGraphs = function () {
+            $("#socialgraph").hide();
+            //$("#inventory").addClass("active");
+			//TODO: a better way to do A/B testing instead of just removing character info, like using text instead
+        };
+
+        // Determine if we're showing the graphs to the users (50% chance they'll see them or not)
+        //if (Math.random() >= 0.65) disableGraphs();
+		
+		/*
+        // Get user name for logging(I'm using the splash screen instead)
+        user = prompt("Give me a user name: (No more than 20 characters)");
+        while (user == null || user == "") {
+            user = prompt("Need a user name!");
+        }
+        $("#user").val(user);
+		*/
+
+        // Get number of attempts so far (this will pull from the database)
+        attempt = 1;
+        //$.ajax({
+
+        //});
+
+        logMetric = function (field, value) {
+            /*
+			$.ajax({
+                method: "post",
+                url: "Log.php",
+                data: {
+                    user: user,
+                    attempt: attempt,
+                    field: field,
+                    value: value
+                },
+                success: function (data) {
+                    console.log("cool! !!! " + data);
+                }
+            })
+			*/
+        };
+		
+			
+    })
+
+	//some copied code for tabs
+$('.tabs-content').hide();
+    var mytabs = [];
+    var mytabsContent = [];
+    $("a.navtab").each(function(){
+        if(this.pathname == window.location.pathname){
+            mytabs.push(this);
+            mytabsContent.push($(this.hash).get(0)); 
+        }
+    });
+    $(mytabs).click(function(){
+            $('.tabs-content').show();
+            $(mytabsContent).hide().filter(this.hash).show();
+            $(mytabs).removeClass("selected");
+            $(this).addClass("selected");               
+        return false;
+    }).filter(":first").click();
+
+
+</script>
+</body>
+</html>

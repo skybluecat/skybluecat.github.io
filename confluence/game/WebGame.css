@@ -1,0 +1,396 @@
+body {
+	font-family: Helvetica, Verdana, Arial, sans-serif;
+	background-color: white;
+	color: black;
+}
+a:link, a:visited {
+	color: #000;
+}
+a:active, a:hover {
+	color: #666;
+}
+p.header {
+	font-size: small;
+}
+p.header span {
+	font-weight: bold;
+}
+p.footer {
+	font-size: x-small;
+}
+div.content {
+	margin: 0;
+	width: 100%;
+}
+div.broken,
+div.missing {
+	margin: auto;
+	position: relative;
+	top: 50%;
+	width: 193px;
+}
+div.broken a,
+div.missing a {
+	height: 63px;
+	position: relative;
+	top: -31px;
+}
+div.broken img,
+div.missing img {
+	border-width: 0px;
+}
+div.broken {
+	display: none;
+}
+div#unityPlayer {
+	cursor: default;
+	height: 600px;
+	width: 800px;
+}
+div#tabs {
+	position:relative;
+	height: 100%;
+	overflow:hidden;
+}
+div#main {
+	position:absolute;
+	top:0px;
+	left:0px;
+	height: 100%;
+	width: 100%;
+}
+div#splashscreen{
+	position:absolute;
+	top:0px;
+	left:0px;
+	height: 100%;
+	width: 100%;
+	background-color:white;
+	z-index:1000;
+}
+div#tabs-navigation{
+	width:100%;
+
+}
+div#tabs-content{
+	position:absolute;
+	top:32px;
+	bottom:0;
+	width:100%;
+	clear:both;
+}
+
+a.navtab {
+	display:inline-block;
+    margin:1px;
+    padding:5px 5px;
+    color:#000;
+    text-decoration:none;
+    -moz-border-radius-topleft: 5px;
+    -moz-border-radius-topright: 5px;    
+    -webkit-border-top-left-radius: 5px;
+    -webkit-border-top-right-radius: 5px;    
+    border-top-left-radius: 5px;    
+    border-top-right-radius: 5px;
+	background: lightskyblue;
+background: linear-gradient(#eee, #ddd);
+}
+a.navtab.selected{
+	background: linear-gradient(#eee,#fff);
+}
+	
+
+/*
+body {
+	background-color: pink;
+	color: blue;
+}
+*/
+.field {
+	position: relative;
+	width: 530px;
+	height: 600px;
+	border: 3px solid #FFF;
+	font-size: 16px;
+}
+#characters{
+	height:100%;
+}
+
+#characterSelect div {
+	height:60px;
+	display: inline-block;
+	margin-top: 4px;
+	background: linear-gradient(#fff,#eee);
+}
+#characterSelect div img{
+	height:50px;
+	width:50px;
+	display: inline-block;
+}
+#characterSelect div.selected {
+	background: linear-gradient(#eee,white);
+}
+#characters-content {
+	clear:both;
+	height:100%;
+	overflow:scroll;
+}
+.characterinfohead {
+	border:1px solid #eee;
+	margin:0;
+	width:9%;
+	display:inline-block;
+	float:left;
+}
+.characterinfocontent {
+	border:1px solid #eee;
+	margin:0;
+	width:89%;
+	display:inline-block;
+}
+p.stat-category{
+	background-color:#eee;
+	margin:0;
+	padding:2px;
+	display:inline-block;
+}
+span.stat-category-text{
+	font-size:larger;
+	float:left;
+}
+span.stat-boolean{
+	display:inline;
+	float:left;
+	margin-left:7px;
+}
+span.stat-numeric{
+	display:inline;
+	float:left;
+	position:relative;
+}
+span.stat-numeric-container{
+	display:block;
+	float:left;
+	border:1px solid black;
+	width:100px;
+	margin-left:7px;
+}
+span.stat-numeric-text{
+	position:absolute;
+	margin-left:7px;
+	left:2px;
+}
+span.stat-relationship{
+	display:inline;
+	float:left;
+		margin-left:7px;
+}
+span.stat-inventory{
+	display:inline;
+	float:left;
+		margin-left:7px;
+}
+div.characterinfo
+{
+	display:inline-block;
+	margin-top: 4px;
+	margin-right:20px;
+}
+img.charactericon{
+	width:1.2em;
+	height:1.2em;
+}
+.character {
+	text-align: center;
+	font-size: 16px;
+	margin: 10px;
+}
+#gamelog{
+	width:100%;
+	height:100%;
+	position:relative;
+}
+#updates{
+	width:100%;
+}
+#updates-old{
+	width:100%;
+	top:200px;
+	bottom:0px;
+	overflow:scroll;
+	position:absolute;
+}
+
+
+#titleDiv{
+	float : left;
+}
+
+#statusDiv{
+	margin-left : 75px;
+	clear : both;
+}
+
+
+.node {
+	cursor: pointer;
+}
+
+.node circle {
+	fill: #fff;
+	stroke: steelblue;
+	stroke-width: 1.5px;
+}
+.node text {
+	font: 10px sans-serif;
+}
+.link {
+	fill: none;
+	stroke: #ccc;
+	stroke-width: 1.5px;
+}
+
+.link.zero {
+	stroke: darkred;
+}
+.link.one {
+	stroke: darkred;
+}
+.link.two {
+	stroke: red;
+}
+.link.three {
+	stroke: red;
+}
+.link.four {
+	stroke: red;
+}
+.link.five {
+	stroke: green;
+}
+.link.six {
+	stroke: green;
+}
+.link.seven {
+	stroke: green;
+}
+.link.eight {
+	stroke: darkgreen;
+}
+.link.nine {
+	stroke: darkgreen;
+}
+
+.link.zero-dash {
+	stroke: darkred;
+	stroke-dasharray: 0,2 1;
+}
+.link.one-dash {
+	stroke: darkred;
+	stroke-dasharray: 0,2 1;
+}
+.link.two-dash {
+	stroke: red;
+	stroke-dasharray: 0,2 1;
+}
+.link.three-dash {
+	stroke: red;
+	stroke-dasharray: 0,2 1;
+}
+.link.four-dash {
+	stroke: red;
+	stroke-dasharray: 0,2 1;
+}
+.link.five-dash {
+	stroke: green;
+	stroke-dasharray: 0,2 1;
+}
+.link.six-dash {
+	stroke: green;
+	stroke-dasharray: 0,2 1;
+}
+.link.seven-dash {
+	stroke: green;
+	stroke-dasharray: 0,2 1;
+}
+.link.eight-dash {
+	stroke: darkgreen;
+	stroke-dasharray: 0,2 1;
+}
+.link.nine-dash {
+	stroke: darkgreen;
+	stroke-dasharray: 0,2 1;
+}
+
+
+.link.resolved {
+	stroke-dasharray: 0,2 1;
+}
+
+circle {
+	fill: #ccc;
+	stroke: #333;
+	stroke-width: 1.5px;
+}
+
+#relationships{
+	font: 20px sans-serif;
+}
+
+text {
+	font: 10px sans-serif;
+	pointer-events: none;
+	text-shadow: 0 1px 0 #fff, 1px 0 0 #fff, 0 -1px 0 #fff, -1px 0 0 #fff;
+}
+
+
+.container {
+	padding: 2% 0;
+}
+
+.vixkey {
+	width: 20px;
+	height: 20px;
+	margin: 5px;
+	border: 1px solid rgba(0, 0, 0, .2);
+}
+
+.darkred {
+	background: darkred;
+	color: white;
+	font-weight: bolder;
+}
+.red {
+	background: red;
+	color: white;
+	font-weight: bolder;
+}
+
+.orangered {
+	background: orangered;
+	color: white;
+	font-weight: bolder;
+}
+.orange {
+	background: orange;
+	color: white;
+	font-weight: bolder;
+}
+
+.greenyellow {
+	background: lightgreen;
+	color: white;
+	font-weight: bolder;
+}
+.green {
+	background: green;
+	color: white;
+	font-weight: bolder;
+}
+
+.darkgreen {
+	background: darkgreen;
+	color: white;
+	font-weight: bolder;
+}
