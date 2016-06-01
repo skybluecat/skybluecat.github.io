@@ -116,21 +116,6 @@ body {
 #characters{
 	height:100%;
 }
-
-#characterSelect div {
-	height:60px;
-	display: inline-block;
-	margin-top: 4px;
-	background: linear-gradient(#fff,#eee);
-}
-#characterSelect div img{
-	height:50px;
-	width:50px;
-	display: inline-block;
-}
-#characterSelect div.selected {
-	background: linear-gradient(#eee,white);
-}
 #characters-content {
 	clear:both;
 	height:100%;
@@ -221,7 +206,25 @@ img.charactericon{
 	overflow:scroll;
 	position:absolute;
 }
-
+#graph-console div {
+	height:60px;
+	display: inline-block;
+	margin-top: 4px;
+	background: linear-gradient(#fff,#eee);
+}
+#graph-console div img{
+	height:50px;
+	width:50px;
+	display: inline-block;
+}
+#graph-console div.selected {
+	background: linear-gradient(#eee,white);
+}
+#graph-canvas {
+	clear:both;
+	height:100%;
+	overflow:scroll;
+}
 
 #titleDiv{
 	float : left;

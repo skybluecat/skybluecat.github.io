@@ -1,0 +1,7 @@
+Action rules format:
+name:insult_stranger_enemy,Insult and make enemies(the one after the comma is its display name, no need to write it if it's not a terminal action)
+intent: increase/decrease a anger/a,b closeness (numeric and booleans both use increase/decrease; top-level rule only)
+is accept:true/false, defaults to true if omitted
+leads to:(a list of comma separated action names - not display names. non-terminal rules only)
+conditions: a, b not enemy; a,b aggression>89 (if action has no conditions, can be omitted; every condition starts with comma separated first and second characters, or no comma and just the first for undirected values; then if the value is boolean, follow by the variable name for true or not+variable name for false; if it's numeric, follow by the variable name+operator+a number. No need to write the class name, just the variable type name.
+effects: can be omitted; just like conditions except operators can be + and - instead of &lt; and &gt;. Can also have conditions with if and else clauses like "effects: if a,b closeness>50: a not happy; b happy else: a happy"; a line of effects can only have one condition but you can have several effects lines(and multiple conditions create an exponential number of split rules, so use sparingly).

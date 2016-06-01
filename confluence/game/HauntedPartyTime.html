@@ -13,6 +13,7 @@
     <script src="core_libs/underscore.js"></script>
     <script src="core_libs/ensembleInit.js"></script>
     <script src="core_libs/mcts.js"></script>
+	<script src="core_libs/rule_parser.js"></script>
     <script src="core_libs/board.js"></script>
     <script src="core_libs/mctsInit.js"></script>
     <script src="core_libs/mctsFunctions.js"></script>
@@ -96,7 +97,17 @@
 				<div id="moveText"></div>
 				<div id="winningGame"></div>
 			</div>
-			<div id="editor">authoring tools</div>
+			<div id="editor">
+				<div style="position:absolute;margin:5px; width:100%;height:100%;overflow:scroll;">
+					<p>edit action rules</p>
+					<textarea id="ruletext" rows="20" style="width:100%"></textarea>
+					<input type="button" id="updaterules" value="update rules" onclick="parse()" />
+					<p>Usage: default text is the current rules; edit the action rules text in the rules box, then click the button to update the game's action rules; effects will be visible when action buttons are refreshed.
+						<br/><a href="rules_format.txt" target="_blank">Action rules format</a><br/>
+						<a href="example_action_rules.txt" target="_blank">Some simple example rules</a>
+					</p>
+				</div>
+			</div>
 		</div>
 	</div>
 </div>
