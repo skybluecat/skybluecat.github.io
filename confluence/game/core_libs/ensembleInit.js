@@ -41,8 +41,8 @@ document.addEventListener('cifLoaded', function (e) {
         
     });
 	*/
-	$("#characterSelect div").click(function () {
-				$("#characterSelect div").removeClass("selected");
+	$("#graph-console div").click(function () {
+				$("#graph-console div").removeClass("selected");
 				 $(this).addClass("selected");
 				 selectedChar=this.id;
 				 if(cast.indexOf(selectedChar)!= -1){graphUpdate();}

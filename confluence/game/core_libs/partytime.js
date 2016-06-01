@@ -40,10 +40,10 @@ graphUpdate = function () {
         ' <div class="col-md-2 darkgreen">80-100</div>' +
         '</div>');
 		*/
-	$("#socialgraph").empty();
-    loadDirected(cif, "attitude", "closeness", selectedChar, "#socialgraph");
-    loadDirected(cif, "attitude", "attraction", selectedChar, "#socialgraph");
-    loadDirected(cif, "attitude", "aggression", selectedChar, "#socialgraph");
+	$("#graph-canvas").empty();
+    loadDirected(cif, "attitude", "closeness", selectedChar, "#graph-canvas");
+    loadDirected(cif, "attitude", "attraction", selectedChar, "#graph-canvas");
+    loadDirected(cif, "attitude", "aggression", selectedChar, "#graph-canvas");
 
     //$("#relationships").empty();
     /*
