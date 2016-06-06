@@ -88,7 +88,7 @@ updateBox = function (strArr, triggerArr) {
 	$('#updates-old').append(update.html());
     update.empty();
     update.append(str);
-	d3.select("#updates-old").style("top",d3.select("#updates").property("clientHeight")+"px");
+	d3.select("#updates-old").style("top",window.getComputedStyle(document.getElementById("updates")).getPropertyValue("height"));
 };
 
 pluralizeType = function (str) {

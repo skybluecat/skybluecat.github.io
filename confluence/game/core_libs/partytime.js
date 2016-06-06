@@ -10,10 +10,47 @@ var gameVariables = {
     "numIntents": 3,
     "numActionsPerIntent": 5
 };
+function throttle (func, wait) {
+    var throttling = false;
+    return function(){
+        if ( !throttling ){
+            func.apply(this, arguments);
+            throttling = true;
+            setTimeout(function(){
+                throttling = false;
+            }, wait);            
+        }
+    };
+}
+window.onresize = throttle(function() {
+    layoutUpdate();
+}, 20);
+function layoutUpdate()
+{
+	d3.select("#tabs-content").style("top",d3.select("#tabs-navigation").property("clientHeight")+"px");
+	//d3.select("#updates-old").style("top",window.getComputedStyle(document.getElementById("updates")).getPropertyValue("height"));
+	
+	
+}
+
+function layoutGraph()
+{
+	var myscale=d3.scale.linear().domain([0,20,50,80,100]).range(["darkred","red","yellow","green","darkgreen"]);
+	var mylegend=d3.legend.color().shapeWidth(d3.select("#tabs-navigation").property("clientWidth")/21-2).orient('horizontal').scale(myscale).cells(21);
+	var svg = d3.select("#graph-canvas").selectAll(".scale");svg.selectAll("g").remove();
+	svg.append("g")
+	  .attr("class", "legendLinear");
+	svg.select(".legendLinear").call(mylegend);
+}
+function layoutLog()
+{
+	d3.select("#updates-old").style("top",window.getComputedStyle(document.getElementById("updates")).getPropertyValue("height"));
+}
+
 
 graphUpdate = function () {
 	;
-	d3.select("#tabs-content").style("top",d3.select("#tabs-navigation").property("clientHeight")+"px");
+	
     $("#characters-content").empty();//keep the character selection
    /* $("#characters-content").append('<div class="row">' +
         '<div class="col-md-2 darkred">0-19</div>' +
@@ -41,6 +78,17 @@ graphUpdate = function () {
         '</div>');
 		*/
 	$("#graph-canvas").empty();
+	/*$("#graph-canvas").append('<div style="width:100%;text-align:center;">' +
+        '<div style="width:19%;display:inline-block;background-color:darkred;">0-19</div>' +
+        '<div style="width:30%;display:inline-block;background-color:red;">20-49</div>' +
+        '<div style="width:30%;display:inline-block;background-color:green;">50-79</div>' +
+        ' <div style="width:20%;display:inline-block;background-color:darkgreen;">80-100</div>' +
+        '</div>');*/
+	var svg = d3.select("#graph-canvas").append("svg").attr("class","scale").style("width","100%").style("height","60px");
+	
+	  //svg getBBox only works if the thing is displayed (not display:none)! so the scale should only render when the tab is selected
+	
+	  
     loadDirected(cif, "attitude", "closeness", selectedChar, "#graph-canvas");
     loadDirected(cif, "attitude", "attraction", selectedChar, "#graph-canvas");
     loadDirected(cif, "attitude", "aggression", selectedChar, "#graph-canvas");
@@ -59,6 +107,7 @@ graphUpdate = function () {
 
    // $("#inventory").empty();
 	//loadInventory(cif, selectedChar, "#characters-content");
+	layoutUpdate();
 };
 var loadCharacterStats=function(EEObject,chosenCharacter,domElement)
 {
