@@ -65,11 +65,11 @@
 	<div id="tabs">
 		<!-- Nav tabs -->
 		<div id="tabs-navigation">
-		<a class="navtab" href="#characters" onresize="layoutUpdate">Characters</a>
-		<a class="navtab" href="#socialgraph" onresize="layoutUpdate();layoutGraph();">Social Graph</a>
-		<a class="navtab" href="#gamelog" onresize="layoutLog();layoutUpdate();">Game Log</a>
-		<a class="navtab" href="#mcts" onresize="layoutUpdate">Strategy Analysis</a>
-		<a class="navtab" href="#editor" onresize="layoutUpdate">Rules Editor</a>
+		<a class="navtab" href="#characters">Characters</a>
+		<a class="navtab" href="#socialgraph" onresize="layoutGraph()">Social Graph</a>
+		<a class="navtab" href="#gamelog" onresize="layoutLog()">Game Log</a>
+		<a class="navtab" href="#mcts" >Strategy Analysis</a>
+		<a class="navtab" href="#editor">Rules Editor</a>
 		</div>
 		<!-- Tab panes -->
 		<div id="tabs-content">
@@ -230,9 +230,10 @@ function submitUser()
 			
     })
 
-	//some copied code for tabs
+	//some copied code for tabs, and save the selected tab somewhere for layout updates, because some things must only redraw when a tab is visible
     var mytabs = [];
     var mytabsContent = [];
+	var selectedTab;
     $("a.navtab").each(function(){
         if(this.pathname == window.location.pathname){
             mytabs.push(this);
@@ -242,8 +243,9 @@ function submitUser()
     $(mytabs).click(function(){
             $(mytabsContent).hide().filter(this.hash).show();
             $(mytabs).removeClass("selected");
-            $(this).addClass("selected");    
-			this.onresize();//hack to execute an update function for the visible tab only
+            $(this).addClass("selected");
+			selectedTab=this;
+			layoutUpdate(this);//hack to execute an update function for the visible tab
         return false;
     }).filter(":first").click();
 
