@@ -197,9 +197,11 @@ img.charactericon{
 	position:relative;
 }
 #updates{
+	display:block;
 	width:100%;
 }
 #updates-old{
+	display:block;
 	width:100%;
 	top:200px;
 	bottom:0px;
@@ -223,7 +225,7 @@ img.charactericon{
 #graph-canvas {
 	clear:both;
 	height:100%;
-	overflow:scroll;
+	overflow:hidden;
 }
 
 #titleDiv{
