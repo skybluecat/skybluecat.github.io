@@ -339,7 +339,8 @@ function loadDirected(EEObject, className, type, chosenCharacter, domElement) {
                     links.push({
                         "source" : chosenCharacter,
                         "target" : other,
-                        "type" : getColorFromNum(val, 100, updated)
+                        "color" : getColorFromNum(val, 100, updated),
+						"updated": updated
                     });
 
                     directedLastVal[type][chosenCharacter][other] = val;
@@ -362,7 +363,8 @@ function loadDirected(EEObject, className, type, chosenCharacter, domElement) {
                     links.push({
                         "source" : other,
                         "target" : chosenCharacter,
-                        "type" : getColorFromNum(val, 100, updated)
+                        "color" : getColorFromNum(val, 100, updated),
+						"updated": updated
                     });
 
                     directedLastVal[type][other][chosenCharacter] = val;
@@ -438,8 +440,8 @@ function loadGraph(links, domElement, type){
     var nodes = {};
     // Compute the distinct nodes from the links.
     links.forEach(function (link) {
-        link.source = nodes[link.source] || (nodes[link.source] = {name: link.source});
-        link.target = nodes[link.target] || (nodes[link.target] = {name: link.target});
+        link.source = nodes[link.source] || (nodes[link.source] = {name: getCharacterName(link.source)});
+        link.target = nodes[link.target] || (nodes[link.target] = {name: getCharacterName(link.target)});
     });
 
     var width = 200,
@@ -477,12 +479,20 @@ function loadGraph(links, domElement, type){
     var path = svg.append("g").selectAll("path")
         .data(force.links())
         .enter().append("path")
-        .attr("class", function (d) {
+		.attr("fill","transparent")
+		.attr("stroke", function (d) {
+            return d.color;
+        })
+		.attr("stroke-width", function (d) {
+            if(d.updated)return 2;
+			else return 1;
+        });//not using css for color now
+        /*.attr("class", function (d) {
             return "link " + d.type;
         })
         .attr("marker-end", function (d) {
             return "url(#" + d.type + ")";
-        });
+        });*/
 
     var circle = svg.append("g").selectAll("circle")
         .data(force.nodes())
@@ -539,10 +549,12 @@ function loadGraph(links, domElement, type){
 
     }, 10);
 }
-
+var scale100=d3.scale.linear().domain([0,20,50,80,100]).range(["darkred","red","yellow","green","darkgreen"]);
 
 function getColorFromNum(num, max, updated) {
-    var index = Math.floor((num / max) * 10);
+	return scale100(num);//moving update style elsewhere
+    /*
+	var index = Math.floor((num / max) * 10);
     var redToGreen = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "nine"];
     var redToGreenDash = ["zero-dash", "one-dash", "two-dash", "three-dash", "four-dash", "five-dash", "six-dash", "seven-dash", "eight-dash", "nine-dash", "nine-dash"];
 
@@ -551,12 +563,16 @@ function getColorFromNum(num, max, updated) {
     }else{
         return redToGreen[index];
     }
+	*/
 }
 
 function getColorFromBool(value){
+	if(value)return scale100(100);else return scale100(0);
+	/*
     if(value){
         return "nine";
     }else{
         return "zero";
     }
+	*/
 }

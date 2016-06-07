@@ -25,10 +25,10 @@ function throttle (func, wait) {
 window.onresize = throttle(function() {
     layoutUpdate();
 }, 20);
-function layoutUpdate()
+function layoutUpdate(tab)
 {
 	d3.select("#tabs-content").style("top",d3.select("#tabs-navigation").property("clientHeight")+"px");
-	//d3.select("#updates-old").style("top",window.getComputedStyle(document.getElementById("updates")).getPropertyValue("height"));
+	if ("onresize" in tab){tab.onresize();}
 	
 	
 }
@@ -107,7 +107,7 @@ graphUpdate = function () {
 
    // $("#inventory").empty();
 	//loadInventory(cif, selectedChar, "#characters-content");
-	layoutUpdate();
+	layoutUpdate(selectedTab);
 };
 var loadCharacterStats=function(EEObject,chosenCharacter,domElement)
 {
