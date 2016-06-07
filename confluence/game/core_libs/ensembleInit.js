@@ -49,6 +49,6 @@ document.addEventListener('cifLoaded', function (e) {
 				else{console.log("The selected character is already out of the game!")}
 			}).filter(":first").click();
 	
-	loadDefault();
+	loadDefaultRules();
 	
 }, false);

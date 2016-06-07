@@ -1,5 +1,5 @@
 var defaultSchema;
-function loadDefault()
+function loadDefaultRules()
 {
  var xhr = new XMLHttpRequest();
 xhr.open("GET", "newdata/data/schema.json", true);
