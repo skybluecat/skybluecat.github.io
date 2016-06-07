@@ -1,5 +1,8 @@
 document.addEventListener('cifLoaded', function (e) {
-	selectedChar = 'eve'
+	selectedChar = 'eve';
+	
+	loadDefaultRules();
+	
 	//Init CiF
 	var loadResult = cif.init();
 	
@@ -49,6 +52,6 @@ document.addEventListener('cifLoaded', function (e) {
 				else{console.log("The selected character is already out of the game!")}
 			}).filter(":first").click();
 	
-	loadDefaultRules();
+	
 	
 }, false);
