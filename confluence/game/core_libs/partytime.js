@@ -28,7 +28,7 @@ window.onresize = throttle(function() {
 function layoutUpdate(tab)
 {
 	d3.select("#tabs-content").style("top",d3.select("#tabs-navigation").property("clientHeight")+"px");
-	if ("onresize" in tab){tab.onresize();}
+	if (tab.onresize){tab.onresize();}
 	
 	
 }
@@ -52,38 +52,11 @@ graphUpdate = function () {
 	;
 	
     $("#characters-content").empty();//keep the character selection
-   /* $("#characters-content").append('<div class="row">' +
-        '<div class="col-md-2 darkred">0-19</div>' +
-        '<div class="col-md-4 red">20-49</div>' +
-        '<div class="col-md-4 green">50-79</div>' +
-        ' <div class="col-md-2 darkgreen">80-100</div>' +
-        '</div>');
-*/
 
-    //loadCharacterTree(cif, selectedChar, "#characters-content");
-	//now using bars to display stats
 	loadCharacterStats(cif,selectedChar,"#characters-content");
 
-    /*$("#characters").append('<div class="row">' +
-        '<div class="col-md-6 darkred">False</div>' +
-        '<div class="col-md-6 darkgreen">True</div>' +
-        '</div>');*/
-
-    /*$("#attitude").empty();
-    $("#attitude").append('<div class="row">' +
-        '<div class="col-md-2 darkred">0-19</div>' +
-        '<div class="col-md-4 red">20-49</div>' +
-        '<div class="col-md-4 green">50-79</div>' +
-        ' <div class="col-md-2 darkgreen">80-100</div>' +
-        '</div>');
-		*/
 	$("#graph-canvas").empty();
-	/*$("#graph-canvas").append('<div style="width:100%;text-align:center;">' +
-        '<div style="width:19%;display:inline-block;background-color:darkred;">0-19</div>' +
-        '<div style="width:30%;display:inline-block;background-color:red;">20-49</div>' +
-        '<div style="width:30%;display:inline-block;background-color:green;">50-79</div>' +
-        ' <div style="width:20%;display:inline-block;background-color:darkgreen;">80-100</div>' +
-        '</div>');*/
+
 	var svg = d3.select("#graph-canvas").append("svg").attr("class","scale").style("width","100%").style("height","60px");
 	
 	  //svg getBBox only works if the thing is displayed (not display:none)! so the scale should only render when the tab is selected
@@ -93,20 +66,6 @@ graphUpdate = function () {
     loadDirected(cif, "attitude", "attraction", selectedChar, "#graph-canvas");
     loadDirected(cif, "attitude", "aggression", selectedChar, "#graph-canvas");
 
-    //$("#relationships").empty();
-    /*
-    $("#relationships").append('<div class="row">' +
-        '<div class="col-md-6 darkred">False</div>' +
-        '<div class="col-md-6 darkgreen">True</div>' +
-        '</div>');
-    loadReciprocal(cif, selectedChar, "#relationships");
-    */
-//now all characters summary are displayed together
-    //loadReciprocalAlternative(cif, selectedChar, "#characters-content");
-
-
-   // $("#inventory").empty();
-	//loadInventory(cif, selectedChar, "#characters-content");
 	layoutUpdate(selectedTab);
 };
 var loadCharacterStats=function(EEObject,chosenCharacter,domElement)

@@ -10,7 +10,6 @@ document.addEventListener('cifLoaded', function (e) {
 	rawSchema = cif.loadFile("newdata/data/schema.json");
 	schema = cif.loadSocialStructure(rawSchema);
 
-
 	// CAST
 	rawCast = cif.loadFile("newdata/data/cast.json");
 	cast = cif.addCharacters(rawCast);
@@ -21,15 +20,8 @@ document.addEventListener('cifLoaded', function (e) {
 	rawVolitionRules = cif.loadFile("newdata/data/volitionRules.json");
 	volitionRules = cif.addRules(rawVolitionRules);
 
-	// Load all actions
 	rawActions = cif.loadFile("newdata/data/actions.json");
 	actions = cif.addActions(rawActions);
-
-	/*characterActions = cif.loadFile("data/actions/characterActions.json");
-	var actions = cif.addActions(characterActions);
-
-	characterReactions = cif.loadFile("data/actions/characterReactions.json");
-	var actions = cif.addActions(characterReactions);*/
 
 	rawHistory = cif.loadFile("newdata/data/history.json");
 	history = cif.addHistory(rawHistory);
@@ -37,13 +29,7 @@ document.addEventListener('cifLoaded', function (e) {
 	// STORED VOLITIONS
 	storedVolitions = cif.calculateVolition(cast);
 
-    /*$("#characterSelect :input").change(function() {
-        selectedChar = this.id;
-		if(cast.indexOf(selectedChar)!= -1){graphUpdate();}
-		else{console.log("The selected character is already out of the game!")}
-        
-    });
-	*/
+	//graphInit();//wait until new graph drawing is done
 	$("#graph-console div").click(function () {
 				$("#graph-console div").removeClass("selected");
 				 $(this).addClass("selected");
