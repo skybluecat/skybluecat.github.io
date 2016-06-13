@@ -30,7 +30,7 @@
  */
 
 
-define(["util", "underscore", "_test"], function(util, _, test) {
+define(["util", "underscore"], function(util, _) {
 
 	var volitionCache = {};
 	var cachePositions = {};

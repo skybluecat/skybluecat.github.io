@@ -28,7 +28,9 @@ window.onresize = throttle(function() {
 function layoutUpdate(tab)
 {
 	d3.select("#tabs-content").style("top",d3.select("#tabs-navigation").property("clientHeight")+"px");
-	if ((tab)&&(tab.onresize)){tab.onresize();}
+	if (tab.onresize){tab.onresize();}
+	
+	
 }
 
 function layoutGraph()
@@ -44,26 +46,134 @@ function layoutLog()
 {
 	d3.select("#updates-old").style("top",window.getComputedStyle(document.getElementById("updates")).getPropertyValue("height"));
 }
-
-
-graphUpdate = function () {
-	;
+var nodes = cast;var links=[];var forceLayout;var graphSelection;var scaleSelection;var pathSelection; var circleSelection; var textSelection;
+function graphInit(){
+	// initializes the social graph only - now we don't redraw the graph completely every time, but the character view is still completely remade every turn, so it's in graphUpdate
+	//creates the color scale svg but doesn't draw the color scale because it must only be drawn when the tab is visible due to the way d3.scale is made, so I draw it on layout updates, ie when user clicks the graph tab
+	scaleSelection = d3.select("#graph-canvas").append("svg").attr("class","scale").style("width","100%").style("height","60px");
+	//TODO: add schema-based color/threshold controls for each kind of relation
 	
-    $("#characters-content").empty();//keep the character selection
+	//TODO: make a force graph layout
+    forceLayout = d3.layout.force()
+        .nodes(nodes)
+        .links(links)
+        .size([500, 500])//TODO: adjust size based on interface layout
+        .linkDistance(60)
+        .charge(-300)
+        .on("tick", tick);
 
-	loadCharacterStats(cif,selectedChar,"#characters-content");
+    graphSelection = d3.select("#graph-canvas").append("svg").attr("class","scale").style("width","100%").style("height","500px");
+    pathSelection = graphSelection.append("g").selectAll("path");      
+    circleSelection = svg.append("g").selectAll("circle");
+    textSelection = svg.append("g").selectAll("text");
+    // Use elliptical arc path segments to doubly-encode directionality.
+    function tick() {
+        path.attr("d", linkArc);
+        circle.attr("transform", transform);
+        text.attr("transform", transform);
+    }
 
-	$("#graph-canvas").empty();
+    function linkArc(d) {
+        var dx = d.target.x - d.source.x,
+            dy = d.target.y - d.source.y,
+            dr = Math.sqrt(dx * dx + dy * dy);
+        return "M" + d.source.x + "," + d.source.y + "A" + dr + "," + dr + " 0 0,1 " + d.target.x + "," + d.target.y;
+    }
+//TODO: add arrows for directionality
+    function transform(d) {
+        return "translate(" + d.x + "," + d.y + ")";
+    }
 
-	var svg = d3.select("#graph-canvas").append("svg").attr("class","scale").style("width","100%").style("height","60px");
-	
-	  //svg getBBox only works if the thing is displayed (not display:none)! so the scale should only render when the tab is selected
-	
-	  
+	 /*
     loadDirected(cif, "attitude", "closeness", selectedChar, "#graph-canvas");
     loadDirected(cif, "attitude", "attraction", selectedChar, "#graph-canvas");
     loadDirected(cif, "attitude", "aggression", selectedChar, "#graph-canvas");
+	*/
+}
 
+graphUpdate = function () {
+//actually updates both the character statistics view and the graph display
+	
+    $("#characters-content").empty();//TODO: add a character filter/navigation control when we need many characters
+	loadCharacterStats(cif,selectedChar,"#characters-content");
+
+	var cast = EEObject.getCharacters();
+	links.length=0;nodes.length=0;cast.forEach(function(c){nodes.push({id:c,name:getCharacterName(c)});});
+    for (var catNum = 0; catNum < loadedSchema.schema.length; catNum++) 
+	{
+        var tempCat = loadedSchema.schema[catNum];
+        if (tempCat.directionType == "directed") 
+		{
+            for (var typeNum = 0; typeNum < tempCat.types.length; typeNum++) 
+			{
+                var tempType = tempCat.types[typeNum];
+                for(var c1 = 0; c1 < cast.length; c1++)
+				{
+					for (var c2=0;c2<cast.length;c2++)
+					{
+						if (c2==c1)continue;
+						var query = {"class": tempCat.class,"type": tempType,"first": cast[c1],"second" : cast[c2]};
+						var results = EEObject.get(query);
+						var val = 0;
+						if ((results.length > 0) && typeof(results[0].value) !== "undefined") {val = results[0].value;}
+						var updated = lastValues[tempType][cast[c1]][cast[c2]]!== val;
+						//TODO: save values for all types?
+						links.push({"source" : cast[c1],"target" : cast[c2],"color" : getColorFromNum(val, 100),"updated": updated});
+						lastValues[tempType][cast[c1]][cast[c2]]!== val
+					}
+                    
+                }
+            }
+        }
+		if (tempCat.directionType == "reciprocal") 
+		{
+            for (var typeNum = 0; typeNum < tempCat.types.length; typeNum++) 
+			{
+                var tempType = tempCat.types[typeNum];
+                for(var c1 = 0; c1 < cast.length; c1++)
+				{
+					for (var c2=c1+1;c2<cast.length;c2++)//reciprocal so only one side needed
+					{
+						var query = {"class": tempCat.class,"type": tempType,"first": cast[c1],"second" : cast[c2]};
+						var results = EEObject.get(query);
+						var val = 0;
+						if ((results.length > 0) && typeof(results[0].value) !== "undefined") {val = results[0].value;}
+						var updated = lastValues[tempType][cast[c1]][cast[c2]]!== val;
+						//TODO: save values for all types?
+						links.push({"source" : cast[c1],"target" : cast[c2],"color" : getColorFromNum(val, 100),"updated": updated});
+						lastValues[tempType][cast[c1]][cast[c2]]!== val
+					}
+                }
+            }
+        }
+    }
+	
+	
+	
+	//
+	pathSelection.data(forceLayout.links())
+		.enter().append("path")
+		.attr("fill","transparent")
+		.attr("stroke", function (d) {
+			return d.color;
+		})
+		.attr("stroke-width", function (d) {
+			if(d.updated)return 2;
+			else return 1;
+		});
+	circleSelection.data(force.nodes())
+		.enter().append("circle")
+		.attr("r", 6)
+		.call(force.drag);
+
+	textSelection.data(force.nodes())
+		.enter().append("text")
+		.attr("x", 8)
+		.attr("y", ".31em")
+		.text(function (d) {
+			return d.name;
+		});
+		
 	layoutUpdate(selectedTab);
 };
 var loadCharacterStats=function(EEObject,chosenCharacter,domElement)
@@ -128,27 +238,23 @@ var loadCharacterStats=function(EEObject,chosenCharacter,domElement)
 				}
 			}
 		}
-		loadReciprocalAlternative(cif, curChar, "#"+curChar+"-info div.characterinfocontent");
+		
 		loadInventory(cif, curChar, "#"+curChar+"-info div.characterinfocontent");
+		loadBooleanRelationships(cif, curChar, "#"+curChar+"-info div.characterinfocontent");
 	}
 }
-var loadReciprocalAlternative = function (cif, chosenCharacter, domElement) {
+var loadBooleanRelationships = function (cif, chosenCharacter, domElement) {
     
     var cast = cif.getCharacters();
-
-    // uses global rawSchema variable from initial load of schema
     var loadedSchema = rawSchema;
 	var ps=d3.select(domElement);
 	var cats=ps.append("p").attr("class","stat-category");
 	cats.append("span").attr("class","stat-category-text").text("Relationships");
     for (var catNum = 0; catNum < loadedSchema.schema.length; catNum++) {
         var tempCat = loadedSchema.schema[catNum];
-
-        if (tempCat.directionType === "reciprocal") {
-
+	if ((tempCat.directionType === "reciprocal")||(tempCat.directionType === "directed")) {//directed booleans are also included
             if (tempCat.isBoolean) {
-
-                //reciprocal boolean value, assuming it's a kind of relationship
+                //binary boolean value, assuming it's a kind of relationship
                 for (var typeNum = 0; typeNum < tempCat.types.length; typeNum++) {
                     var chars = [];
                     var tempType = tempCat.types[typeNum];
@@ -192,7 +298,7 @@ var loadReciprocalAlternative = function (cif, chosenCharacter, domElement) {
 }
 
 var loadInventory = function (cif, selectedChar, domElement) {
-    types = ['poolcue', 'gun', 'pill'];
+    types = Object.keys(schema.inventory);//['poolcue', 'gun', 'pill'];
     var inventoryEmpty = true;
 	var ps=d3.select(domElement);
 	var cats=ps.append("p").attr("class","stat-category");

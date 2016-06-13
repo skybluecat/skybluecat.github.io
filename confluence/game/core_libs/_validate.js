@@ -3,8 +3,8 @@
  *
  */
 
-define(["util", "underscore", "jquery", "_sfdb"],
-function(util, _, $, sfdb) {
+define(["util", "underscore", "_sfdb"],
+function(util, _, sfdb) {
 
 	var allowedDirTypes = ["directed", "undirected", "reciprocal"];
 	var allowedOpsConditions = [">", "<", "="];

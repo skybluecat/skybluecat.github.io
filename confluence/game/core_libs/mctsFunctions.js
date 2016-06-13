@@ -2,7 +2,7 @@ recommendMove = function () {
     if (typeof(Worker) !== "undefined") {
         if (typeof(w) == "undefined") {
             w = new Worker("core_libs/next_play.js");
-            w.postMessage([cif.getSFDBForD3(), gameVariables.turnNumber]);
+            setTimeout(function(){w.postMessage([cif.getSFDBForD3(), gameVariables.turnNumber,rawSchema, rawCast, rawTriggerRules, rawVolitionRules,rawActions,cast]);},1000);//must wait after it loads cif and then start, and send the raw data along
         }
         w.onmessage = function(event) {
             $("#moveText").empty();
@@ -22,6 +22,8 @@ recommendMove = function () {
 showWinningGame = function () {
     var winningGames = gameAI.winning_games;
     if (winningGames.length === 0) {
+		$("#winningGame").empty();
+		$("#winningGame").append("<p>No winning move sequences found yet</p>");
         return;
     }
     var shortestGame = winningGames[0];

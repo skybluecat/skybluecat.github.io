@@ -6,8 +6,8 @@
  * @class CiF
  */
 
-define(["util", "underscore", "_ruleLibrary", "_actionLibrary", "_sfdb", "_test", "_validate"],
-function(util, _, ruleLibrary, actionLibrary, sfdb, test, validate) {
+define(["util", "underscore", "_ruleLibrary", "_actionLibrary", "_sfdb", "_validate"],// test uses jquery which can't work in webworker, and it is minified so I removed it completely
+function(util, _, ruleLibrary, actionLibrary, sfdb, validate) {
 
 
 		/**
@@ -660,9 +660,7 @@ function(util, _, ruleLibrary, actionLibrary, sfdb, test, validate) {
 	// Export interface to a global variable, "cif".
 	cifDuplicate = cifInterface;
 	
-	var event = document.createEvent('Event');
-	event.initEvent('cifDuplicateLoaded', true, true);
-	document.dispatchEvent(event);
+	//load event removed
 
 	return cifInterface;
 

@@ -10,8 +10,8 @@
  * @private
  */
 
-define(["_sfdb", "_volition", "underscore", "util", "_log", "_test"],
-	function(sfdb, volition, _, util, log, test) {
+define(["_sfdb", "_volition", "underscore", "util"],
+	function(sfdb, volition, _, util) {
 
 		
 

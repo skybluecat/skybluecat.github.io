@@ -1,7 +1,24 @@
+importScripts('object_hash.js');
 importScripts('require.js');
-require(['common'], function () {
-    require(['_cif']);
-});
+
+require(['_cif']);
+
+var rawSchema;var rawCast; var rawTriggerRules;var rawVolitionRules;var rawActions; var cast;
+
+deepClone = function (e) {
+    if (null === e || "object" != typeof e) return e;
+    if (e instanceof Array) {
+        var t = [];
+        for (var n = 0, r = e.length; n < r; n++) t[n] = deepClone(e[n]);
+        return t
+    }
+    if (e instanceof Object) {
+        var t = {};
+        for (var i in e) e.hasOwnProperty(i) && (t[i] = deepClone(e[i]));
+        return t
+    }
+    throw new Error("Unable to copy obj! Its type isn't supported.")
+};
 
 function MonteCarlo(board, state, turnsTaken, options) {
     this.board = board;
@@ -10,7 +27,7 @@ function MonteCarlo(board, state, turnsTaken, options) {
     this.plays = {'eve': {}};
     this.max_depth = 0;
     this.stats = {};
-    this.calculation_time = 60 * 1000;
+    this.calculation_time = 600 * 1000;
     this.currentPlayer = 'eve';
     this.max_moves = 15 - turnsTaken;
     this.C = 1.4;
@@ -278,15 +295,6 @@ function Board(currentSFDB) {
     //var rawActions = cif.loadFile("newdata/data/actions.json");
     this.CIFinstance.addActions(rawActions);
 
-    /*characterActions = cif.loadFile("data/actions/characterActions.json");
-     var actions = cif.addActions(characterActions);
-
-     characterReactions = cif.loadFile("data/actions/characterReactions.json");
-     var actions = cif.addActions(characterReactions);*/
-
-    //var rawHistory = cif.loadFile("newdata/data/history.json");
-    //history = cif.addHistory(rawHistory);
-
     // set the SFDB with a clone of current SFDB instead of loading history
 
 }
@@ -396,8 +404,9 @@ Board.prototype.winner = function (state_copy) {
 onmessage = function(e) {
 	// argument  e  should be gameAI object
 	// Run next play
-	console.log(e.data[0])
+	console.log(e);
+	rawSchema=e.data[2];rawCast=e.data[3]; rawTriggerRules=e.data[4];rawVolitionRules=e.data[5];rawActions=e.data[6];cast=e.data[7];
 	gameAI = new MonteCarlo(new Board(), [e.data[0]], e.data[1]);
-	move = e.get_play();
+	move = gameAI.get_play();
 	postMessage(move.move);
 }

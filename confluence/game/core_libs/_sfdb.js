@@ -3,7 +3,7 @@
 * @class  SFDB
 * @private
 */
-define(["underscore", "util", "jquery", "_test"], function(_, util, $, test) {
+define(["underscore", "util", ], function(_, util) {
 
 	var sfdb = [];
 	var currentTimeStep = -1; //initialize to -1 (assumes we start at time 0 when playings)
