@@ -55,7 +55,7 @@
 				</div>
 			</div>
 		</div>
-		<div id="focusHint" style="position:absolute;top:600px;height:50px;width:100%;color:red;font-size:larger;">Focus lost. Please click on the Unity Web Player area to direct keypresses to it.</div>
+		<div id="focusHint" style="position:absolute;top:600px;height:50px;width:100%;color:red;font-size:larger;">Focus lost. Please click on the graphical game area to direct keypresses to it.</div>
 	</div>
 	<div id="tabs">
 		<!-- Nav tabs -->
@@ -109,15 +109,15 @@
 </div>
 
 <div id="splashscreen">
-    <div class="panel panel-primary">
-        <div class="panel-heading">
-            <h1 class="panel-title">Haunted Party Time!</h1>
+    <div>
+        <div>
+            <h1>Haunted Party Time!</h1>
         </div>
-        <div class="panel-body">
-            <div class="text-center">
+        <div>
+            <div style="text-align:center;">
                 <h2><img src="images/ghost.png" style="width:50px;height:50px;"/>The house you haunt is under attack!<img src="images/ghost.png" style="width:50px;height:50px;"/></h2>
             </div>
-            <div class="text-left">
+            <div>
                 <h4>
                     <p>
                         Not really, it's just a bunch of people having a party. Seems they forgot that you (the ghost) are already "living" here and you hate people!
@@ -164,7 +164,7 @@
 
 function displaySplashScreen()
 {//TODO: display the relationships and character pictures more automatically
-	document.getElementById("splashscreen").style.display="none";//debug
+	//document.getElementById("splashscreen").style.display="none";
 }
 displaySplashScreen();
 function submitUser()
@@ -257,7 +257,7 @@ function submitUser()
 
 window.onkeydown=function(e){
 	if(e.keyCode==9){$(selectedTab.nextTab).click();}//tab key switches tab
-    return false;
+	return true;
 };
 
 </script>
