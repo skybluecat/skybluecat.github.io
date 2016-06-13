@@ -23,13 +23,7 @@
             require(['cif', '_cif']);
         });
     </script>
-    <!--<script type='text/javascript' src='https://ssl-webplayer.unity3d.com/download_webplayer-3.x/3.0/uo/jquery.min.js'></script>-->
-    <script type="text/javascript">
-        var unityObjectUrl = "http://webplayer.unity3d.com/download_webplayer-3.x/3.0/uo/UnityObject2.js";
-        if (document.location.protocol == 'https:')
-            unityObjectUrl = unityObjectUrl.replace("http://", "https://ssl-");
-        document.write('<script type="text\/javascript" src="' + unityObjectUrl + '"><\/script>');
-    </script>
+    <script type='text/javascript' src="core_libs/UnityObject2.js"></script>
 	<script src="core_libs/unityInit.js"></script>
     <script src="core_libs/EnsembleEngine.js"></script>
 	<script src="core_libs/partytime.js"></script>
@@ -42,7 +36,7 @@
 
 <div id="main">
 	<!-- with all content shown in graph visualization, I think we don't need so may rows and cols so removed bootstrap, and moved the unity part eariler in the code to use pure CSS layout -->
-	<div style="width:800px;height:100%;float:right;">
+	<div style="width:800px;height:100%;float:right;position:relative;overflow:hidden;">
 		<div class="content">
 			<div id="unityPlayer">
 				<div class="missing">
@@ -61,6 +55,7 @@
 				</div>
 			</div>
 		</div>
+		<div id="focusHint" style="position:absolute;top:600px;height:50px;width:100%;color:red;font-size:larger;">Focus lost. Please click on the Unity Web Player area to direct keypresses to it.</div>
 	</div>
 	<div id="tabs">
 		<!-- Nav tabs -->
@@ -227,6 +222,16 @@ function submitUser()
 			*/
         };
 		
+		var unityElement;var focusHintElement=$("#focusHint")[0];
+		function focusHint()
+		{
+		//since I didn't find a way to focus keypresses automatically on Unity, display a sign when it is unfocused instead
+			if(!unityElement){unityElement=$("embed")[0];}
+			if(!unityElement){return;}
+			if(document.activeElement!=unityElement){focusHintElement.style.display="block";}
+			else{focusHintElement.style.display="none";}
+		}
+		var focusHintInterval=setInterval(focusHint,1000);
 			
     })
 
@@ -236,10 +241,11 @@ function submitUser()
 	var selectedTab;
     $("a.navtab").each(function(){
         if(this.pathname == window.location.pathname){
-            mytabs.push(this);
+            mytabs.push(this);if(mytabs.length>1)mytabs[mytabs.length-2].nextTab=this;
             mytabsContent.push($(this.hash).get(0)); 
         }
     });
+	mytabs[mytabs.length-1].nextTab=mytabs[0];
     $(mytabs).click(function(){
             $(mytabsContent).hide().filter(this.hash).show();
             $(mytabs).removeClass("selected");
@@ -249,6 +255,10 @@ function submitUser()
         return false;
     }).filter(":first").click();
 
+window.onkeydown=function(e){
+	if(e.keyCode==9){$(selectedTab.nextTab).click();}//tab key switches tab
+    return false;
+};
 
 </script>
 </body>
