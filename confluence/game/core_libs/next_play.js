@@ -1,7 +1,7 @@
 importScripts('object_hash.js');
 importScripts('require.js');
 
-require(['_cif']);
+require(['cif_duplicate']);
 
 var rawSchema;var rawCast; var rawTriggerRules;var rawVolitionRules;var rawActions; var cast;
 

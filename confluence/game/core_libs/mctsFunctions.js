@@ -2,7 +2,7 @@ recommendMove = function () {
     if (typeof(Worker) !== "undefined") {
         if (typeof(w) == "undefined") {
             w = new Worker("core_libs/next_play.js");
-            setTimeout(function(){w.postMessage([cif.getSFDBForD3(), gameVariables.turnNumber,rawSchema, rawCast, rawTriggerRules, rawVolitionRules,rawActions,cast]);},1000);//must wait after it loads cif and then start, and send the raw data along
+            setTimeout(function(){w.postMessage([cif.getSFDBForD3(), gameVariables.turnNumber,rawSchema, rawCast, rawTriggerRules, rawVolitionRules,rawActions,cast]);},2000);//must wait after it loads cif and then start, and send the raw data along
         }
         w.onmessage = function(event) {
             $("#moveText").empty();
