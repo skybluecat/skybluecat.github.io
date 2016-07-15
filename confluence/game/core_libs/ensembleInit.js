@@ -29,15 +29,16 @@ document.addEventListener('cifLoaded', function (e) {
 	// STORED VOLITIONS
 	storedVolitions = cif.calculateVolition(cast);
 
-	//graphInit();//wait until new graph drawing is done
-	$("#graph-console div").click(function () {
+	graphInit();//new graph drawing no longer redraws from scratch every time
+	/*$("#graph-console div").click(function () {
 				$("#graph-console div").removeClass("selected");
 				 $(this).addClass("selected");
 				 selectedChar=this.id;
 				 if(cast.indexOf(selectedChar)!= -1){graphUpdate();}
 				else{console.log("The selected character is already out of the game!")}
-			}).filter(":first").click();
+			}).filter(":first").click();*/ //use a customizable main graph so no need for selecting focus characters; selecting characters is done by cicking on the graph
 	
-	
+	graphUpdate();
+	$(mytabs).filter(":first").click()
 	
 }, false);

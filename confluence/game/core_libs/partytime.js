@@ -23,50 +23,327 @@ function throttle (func, wait) {
     };
 }
 window.onresize = throttle(function() {
-    layoutUpdate();
+    layoutUpdate(selectedTab);
 }, 20);
 function layoutUpdate(tab)
 {
 	d3.select("#tabs-content").style("top",d3.select("#tabs-navigation").property("clientHeight")+"px");
 	if ((tab)&&(tab.onresize)){tab.onresize();}
+	
+	
 }
+var myscale=d3.scale.linear().domain([0,20,50,80,100]).range(["darkred","red","yellow","green","darkgreen"]);
+var mylegend=d3.legend.color();
 
+
+var relationTypeColors={"closeness":"lightgreen","attraction":"pink","aggression":"tomato","married":"deeppink","friend":"limegreen","sibling":"turquoise","enemy":"darkred"};
+
+function getLinkColor(d) 
+{
+	/*if(d.isBoolean)
+	{return myscale(100*d.value);}
+	else{return myscale(100*(d.value-d.minValue)/(d.maxValue-d.minValue));}*/
+	return relationTypeColors[d.type];
+}
 function layoutGraph()
 {
-	var myscale=d3.scale.linear().domain([0,20,50,80,100]).range(["darkred","red","yellow","green","darkgreen"]);
-	var mylegend=d3.legend.color().shapeWidth(d3.select("#tabs-navigation").property("clientWidth")/21-2).orient('horizontal').scale(myscale).cells(21);
+	/*mylegend.shapeWidth(d3.select("#tabs-navigation").property("clientWidth")/21-2).orient('horizontal').scale(myscale).cells(21);
 	var svg = d3.select("#graph-canvas").selectAll(".scale");svg.selectAll("g").remove();
 	svg.append("g")
 	  .attr("class", "legendLinear");
-	svg.select(".legendLinear").call(mylegend);
+	svg.select(".legendLinear").call(mylegend);*/
+	
+	//now not using a color scale, since multiple types need colors
+	//TODO: add schema-based color/threshold controls for each kind of relation
+	//using a fixed color legend for types of relations
+	var scaleSelection = d3.select("#graph-canvas").selectAll(".scale");scaleSelection.selectAll("g").remove();
+	var ordinal = d3.scale.ordinal()
+	  .domain(Object.keys(relationTypeColors))
+	  .range(Object.keys(relationTypeColors).map(function(a){return relationTypeColors[a]}));
+	scaleSelection.append("g")
+	  .attr("class", "legendOrdinal")
+	  .attr("transform", "translate(40,20)");
+	var legendOrdinal = d3.legend.color()
+	  //d3 symbol creates a path-string, for example
+	  //"M0,-8.059274488676564L9.306048591020996,
+	  //8.059274488676564 -9.306048591020996,8.059274488676564Z"
+	  .shape("path", d3.svg.symbol().type("square").size(200)())
+	  .shapePadding(70)
+	  .scale(ordinal)
+	  .orient('horizontal');
+	scaleSelection.select(".legendOrdinal")
+	  .call(legendOrdinal);
+	
+	var lineSize = d3.scale.linear().domain([0,100]).range([1, 5]);
+	scaleSelection.append("g")
+	  .attr("class", "legendSizeLine")
+	  .attr("transform", "translate(0, 60)");
+	var legendSizeLine = d3.legend.size()
+		  .scale(lineSize)
+		  .shape("line")
+		  .orient("horizontal")
+		  .labels(["very low or no", "low", "medium", "high", "very high or yes"])
+		  .shapeWidth(40)
+		  .labelAlign("start")
+		  .shapePadding(70);
+
+	scaleSelection.select(".legendSizeLine")
+	  .call(legendSizeLine);
+	
 }
 function layoutLog()
 {
 	d3.select("#updates-old").style("top",window.getComputedStyle(document.getElementById("updates")).getPropertyValue("height"));
 }
-
-
-graphUpdate = function () {
-	;
+var nodes = {};var links=[];var forceLayout;var graphSelection;var scaleSelection;var nodeSelection; var linkSelection;
+var lastValues={};
+function graphInit(){
+	// initializes the social graph only - now we don't redraw the graph completely every time, but the character view is still completely remade every turn, so it's in graphUpdate
+	//creates the color scale svg but doesn't draw the color scale because it must only be drawn when the tab is visible due to the way d3.legend is made, so I draw it on layout updates, ie when user clicks the graph tab
+	scaleSelection = d3.select("#graph-canvas").append("svg").attr("class","scale").style("width","100%").style("height","90px");
 	
-    $("#characters-content").empty();//keep the character selection
+	//
+	//initialize saved social state values
+	for (var catNum = 0; catNum < rawSchema.schema.length; catNum++) 
+	{
+        var tempCat = rawSchema.schema[catNum];
+        if (tempCat.directionType == "directed") 
+		{
+            for (var typeNum = 0; typeNum < tempCat.types.length; typeNum++) 
+			{
+                var tempType = tempCat.types[typeNum];lastValues[tempType]={};
+                for(var c1 = 0; c1 < cast.length; c1++)
+				{lastValues[tempType][cast[c1]]={};
+					for (var c2=0;c2<cast.length;c2++)
+					{
+						if (c2==c1)continue;
+						var query = {"class": tempCat.class,"type": tempType,"first": cast[c1],"second" : cast[c2]};
+						var results = cif.get(query);
+						var val = false;//booleans which are false return no results
+						if ((results.length > 0) && typeof(results[0].value) !== "undefined") {val = results[0].value;}
+						lastValues[tempType][cast[c1]][cast[c2]]= val;
+					} 
+                }
+            }
+        }
+		if (tempCat.directionType == "reciprocal") 
+		{
+            for (var typeNum = 0; typeNum < tempCat.types.length; typeNum++) 
+			{
+                var tempType = tempCat.types[typeNum];lastValues[tempType]={};
+                for(var c1 = 0; c1 < cast.length; c1++)
+				{lastValues[tempType][cast[c1]]={};
+					for (var c2=c1+1;c2<cast.length;c2++)//reciprocal so only one side needed
+					{
+						var query = {"class": tempCat.class,"type": tempType,"first": cast[c1],"second" : cast[c2]};
+						var results = cif.get(query);
+						var val = false;//booleans which are false return no results
+						if ((results.length > 0) && typeof(results[0].value) !== "undefined") {val = results[0].value;}
+						lastValues[tempType][cast[c1]][cast[c2]]= val;
+					}
+                }
+            }
+        }
+	}
+	//TODO: make a force graph layout
+	//update nodes with cast at updates
+	
+    forceLayout = d3.layout.force()
+        .nodes(d3.values(nodes))
+        .links(links)
+        .size([500, 500])//TODO: adjust size based on interface layout
+        .linkDistance(200).linkStrength(function(d){if(d.isBoolean)return 1; else return d.value/d.maxValue;})
+        .charge(-200)
+        .on("tick", tick);
 
+    graphSelection = d3.select("#graph-canvas").append("svg").attr("id","graph-svg").style("width","100%").style("height","500px").call(tip);
+    linkSelection = graphSelection.selectAll(".link");      
+    nodeSelection = graphSelection.selectAll(".node");
+    // Use elliptical arc path segments to doubly-encode directionality.
+    
+}
+var tip = d3.tip()
+    .attr('class', 'd3-tip')
+    .offset([-10, 0])
+    .html(textDescription);
+function tick() {
+	linkSelection.attr("d", linkArc);
+	nodeSelection.attr("transform", transform);
+	//nodeSelection.selectAll("text").attr("transform", transform);
+}
+var count=0;
+function linkArc(d) {
+	var dx = d.target.x - d.source.x,
+	dy = d.target.y - d.source.y;
+	//dr = (Math.sqrt(dx*dx+dy*dy)/2)*(Math.sqrt(dx*dx+dy*dy)/2)/(d.linknum*15);//r=(distance/2)^2/offset
+	//return "M" + d.source.x + "," + d.source.y + "A" + dr + "," + dr + " 0 0,1 " + d.target.x + "," + d.target.y;
+	//if(count<10){console.log(d);count++;}
+	//not using arcs, use line segments
+	
+	var dv=new Victor(dx,dy);
+	var nv=dv.clone().normalize();
+	var ov=dv.clone().rotate(Math.PI/2).normalize();//a unit offset vector to the right; note rotate and rotateBy are different, the latter seems wrong
+	var ov2=ov.clone().multiply(new Victor((d.linknum-0.5)*10,(d.linknum-0.5)*10));//total offset, minus half a unit so two innermost lines in the middle will be one unit apart instead of two
+	if(d.reciprocal)
+	{return "M" + (d.source.x+ov2.x) + "," + (d.source.y+ov2.y) + " l " + dv.x+","+dv.y;}//no arrows
+	else
+	{return "M" + (d.source.x+ov2.x) + "," + (d.source.y+ov2.y) + " l " + dv.x/2+","+dv.y/2 +" l "+((ov.x-nv.x)*7) + "," + ((ov.y-nv.y)*7) + " m "+(-ov.x*14) + "," + (-ov.y*14) +" l "+((ov.x+nv.x)*7) + "," + ((ov.y+nv.y)*7)  + " l "+ (dv.x/2) + "," + (dv.y/2);}
+}
+//TODO: add arrows for directionality
+function transform(d) {
+	return "translate(" + d.x + "," + d.y + ")";
+}
+function graphUpdate() {
+//actually updates both the character statistics view and the graph display
+	
+    $("#characters-content").empty();//TODO: add a character filter/navigation control when we need many characters
 	loadCharacterStats(cif,selectedChar,"#characters-content");
 
-	$("#graph-canvas").empty();
-
-	var svg = d3.select("#graph-canvas").append("svg").attr("class","scale").style("width","100%").style("height","60px");
-	
-	  //svg getBBox only works if the thing is displayed (not display:none)! so the scale should only render when the tab is selected
-	
-	  
-    loadDirected(cif, "attitude", "closeness", selectedChar, "#graph-canvas");
-    loadDirected(cif, "attitude", "attraction", selectedChar, "#graph-canvas");
-    loadDirected(cif, "attitude", "aggression", selectedChar, "#graph-canvas");
-
+	getRelationshipLinks();
+	renderRelationshipGraph();
 	layoutUpdate(selectedTab);
 };
-var loadCharacterStats=function(EEObject,chosenCharacter,domElement)
+
+function getRelationshipLinks()
+{
+		var cast = cif.getCharacters();
+		for(var c in nodes){if (cast.indexOf(c)==-1){delete nodes[c];}}//update character nodes
+		for(var i=0;i<cast.length;i++){if(!nodes[cast[i]]){nodes[cast[i]]={id:cast[i],name:getCharacterName(cast[i])};}}
+	links.length=0;
+	//TODO: instead of querying everything, try getting the data directly from the database somehow
+    for (var catNum = 0; catNum < rawSchema.schema.length; catNum++) 
+	{
+        var tempCat = rawSchema.schema[catNum];
+        if (tempCat.directionType == "directed") 
+		{
+            for (var typeNum = 0; typeNum < tempCat.types.length; typeNum++) 
+			{
+                var tempType = tempCat.types[typeNum];
+                for(var c1 = 0; c1 < cast.length; c1++)
+				{
+					for (var c2=0;c2<cast.length;c2++)
+					{
+						if (c2==c1)continue;
+						var query = {"class": tempCat.class,"type": tempType,"first": cast[c1],"second" : cast[c2]};
+						var results = cif.get(query);
+						var val = false;//booleans which are false return no results
+						if ((results.length > 0) && typeof(results[0].value) !== "undefined") {val = results[0].value;}
+						var updated = lastValues[tempType][cast[c1]][cast[c2]]!== val;
+						//TODO: save values for all types?
+						var tempobj={"source" : nodes[cast[c1]],"target" : nodes[cast[c2]], "value" : val,"updated": updated,"reciprocal":false,type:tempType,isBoolean:tempCat.isBoolean};
+						if(tempCat.isBoolean){tempobj.defaultValue=tempCat.defaultValue;}
+						else{tempobj.defaultValue=tempCat.defaultValue;tempobj.minValue=tempCat.minValue;tempobj.maxValue=tempCat.maxValue;}//save value range for future display styles
+						if((updated)||((tempCat.isBoolean==true)&&(val!=tempCat.defaultValue))||(val>tempCat.defaultValue))links.push(tempobj);
+						lastValues[tempType][cast[c1]][cast[c2]]= val;
+					}
+                    
+                }
+            }
+        }
+		if (tempCat.directionType == "reciprocal") 
+		{
+            for (var typeNum = 0; typeNum < tempCat.types.length; typeNum++) 
+			{
+                var tempType = tempCat.types[typeNum];
+                for(var c1 = 0; c1 < cast.length; c1++)
+				{
+					for (var c2=c1+1;c2<cast.length;c2++)//reciprocal so only one side needed
+					{
+						var query = {"class": tempCat.class,"type": tempType,"first": cast[c1],"second" : cast[c2]};
+						var results = cif.get(query);
+						var val = false;//booleans which are false return no results
+						if ((results.length > 0) && typeof(results[0].value) !== "undefined") {val = results[0].value;}
+						var updated = lastValues[tempType][cast[c1]][cast[c2]]!== val;
+						//TODO: save values for all types?
+						var tempobj={"source" : nodes[cast[c1]],"target" : nodes[cast[c2]], "value" : val,"updated": updated,"reciprocal":true,type:tempType,isBoolean:tempCat.isBoolean};
+						if(tempCat.isBoolean){tempobj.defaultValue=tempCat.defaultValue;}
+						else{tempobj.defaultValue=tempCat.defaultValue;tempobj.minValue=tempCat.minValue;tempobj.maxValue=tempCat.maxValue;}//save value range for future display styles
+						if((updated)||((tempCat.isBoolean==true)&&(val!=tempCat.defaultValue))||(val>tempCat.defaultValue))links.push(tempobj);
+						lastValues[tempType][cast[c1]][cast[c2]]= val;
+					}
+                }
+            }
+        }
+    }
+}
+
+
+
+function renderRelationshipGraph()
+{
+	//copied code for multi-digraph
+
+	//sort links by source, then target; id is internal character name
+	links.sort(function(a,b) {
+		if (a.source.id > b.source.id) {return 1;}
+		else if (a.source.id < b.source.id) {return -1;}
+		else {
+			if (a.target.id > b.target.id) {return 1;}
+			if (a.target.id < b.target.id) {return -1;}
+			else {return 0;}
+		}
+	});
+	//any links with duplicate source and target get an incremented 'linknum', starting from 1
+	for (var i=0; i<links.length; i++) {
+		if (i != 0 &&
+			links[i].source == links[i-1].source &&
+			links[i].target == links[i-1].target) {
+				links[i].linknum = links[i-1].linknum + 1;
+			}
+		else {links[i].linknum = 1;};
+	};
+
+	
+
+	var w = 500,
+		h = 500;
+	forceLayout.stop();
+	forceLayout.nodes(d3.values(nodes))
+		.links(links)
+		.size([w, h]);
+	//
+	linkSelection=linkSelection.data(forceLayout.links(),function(d){return d.source.id+d.target.id+d.type;});
+	linkSelection.exit().remove();
+	linkSelection.enter().insert("path",".node")//drawn before all nodes
+		.attr("class","link")
+		.attr("fill","transparent")
+		.attr("stroke",function(d){return relationTypeColors[d.type];})
+		.attr("stroke-width", function (d) {
+			if(d.isBoolean){return 5;}
+			return Math.log(Math.max(d.value,1));
+		})
+		.on('mouseover', tip.show).on('mouseout', tip.hide);
+	linkSelection = graphSelection.selectAll(".link");//the whole selection needs to update shapes at every tick
+	
+	
+	
+	nodeSelection=nodeSelection.data(forceLayout.nodes(),function(d){return d.id;});
+	nodeSelection.exit().remove();
+	var newNodes=nodeSelection.enter().append("g").attr("class","node").call(forceLayout.drag);
+	newNodes.append("image")
+		.attr("xlink:href", function(d){return "./img/"+d.id+".png"})
+		.attr("x", -16)
+		.attr("y", -16)
+		.attr("width", 32)
+		.attr("height", 32);
+	newNodes.append("text")
+		.attr("x", 8)
+		.attr("y", ".31em")
+		.text(function (d) {
+			return d.name;
+		});
+	nodeSelection = graphSelection.selectAll(".node");
+	forceLayout.start();
+}
+
+function textDescription(d)
+{
+	return d.type+" "+d.value;
+}
+
+
+//relationship graph stuff above
+function loadCharacterStats(EEObject,chosenCharacter,domElement)
 {
 	var loadedSchema = rawSchema;
 	var ps=d3.select(domElement);//parent selection
@@ -128,27 +405,23 @@ var loadCharacterStats=function(EEObject,chosenCharacter,domElement)
 				}
 			}
 		}
-		loadReciprocalAlternative(cif, curChar, "#"+curChar+"-info div.characterinfocontent");
+		
 		loadInventory(cif, curChar, "#"+curChar+"-info div.characterinfocontent");
+		loadBooleanRelationships(cif, curChar, "#"+curChar+"-info div.characterinfocontent");
 	}
 }
-var loadReciprocalAlternative = function (cif, chosenCharacter, domElement) {
+var loadBooleanRelationships = function (cif, chosenCharacter, domElement) {
     
     var cast = cif.getCharacters();
-
-    // uses global rawSchema variable from initial load of schema
     var loadedSchema = rawSchema;
 	var ps=d3.select(domElement);
 	var cats=ps.append("p").attr("class","stat-category");
 	cats.append("span").attr("class","stat-category-text").text("Relationships");
     for (var catNum = 0; catNum < loadedSchema.schema.length; catNum++) {
         var tempCat = loadedSchema.schema[catNum];
-
-        if (tempCat.directionType === "reciprocal") {
-
+	if ((tempCat.directionType === "reciprocal")||(tempCat.directionType === "directed")) {//directed booleans are also included
             if (tempCat.isBoolean) {
-
-                //reciprocal boolean value, assuming it's a kind of relationship
+                //binary boolean value, assuming it's a kind of relationship
                 for (var typeNum = 0; typeNum < tempCat.types.length; typeNum++) {
                     var chars = [];
                     var tempType = tempCat.types[typeNum];
@@ -192,7 +465,7 @@ var loadReciprocalAlternative = function (cif, chosenCharacter, domElement) {
 }
 
 var loadInventory = function (cif, selectedChar, domElement) {
-    types = ['poolcue', 'gun', 'pill'];
+    types = Object.keys(schema.inventory);//['poolcue', 'gun', 'pill'];
     var inventoryEmpty = true;
 	var ps=d3.select(domElement);
 	var cats=ps.append("p").attr("class","stat-category");
