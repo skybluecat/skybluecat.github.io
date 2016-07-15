@@ -4,7 +4,9 @@
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
     <title>Haunted Party Game</title>
     <script src="core_libs/d3.js"></script>
+	<script src="core_libs/d3.tip.js"></script>
 	<script src="core_libs/d3-legend.js"></script>
+	<script src="core_libs/victor.js"></script>
     <script src="core_libs/EEVisualize.js"></script>
     <script src="core_libs/object_hash.js"></script>
 	
@@ -12,6 +14,9 @@
 
     <script src="core_libs/jquery-2.2.1.js"></script>
     <script src="core_libs/underscore.js"></script>
+	
+	   <script src="core_libs/EnsembleEngine.js"></script>
+	<script src="core_libs/partytime.js"></script>
     <script src="core_libs/ensembleInit.js"></script>
     <script src="core_libs/mcts.js"></script>
 	<script src="core_libs/rule_parser.js"></script>
@@ -25,8 +30,7 @@
     </script>
     <script type='text/javascript' src="core_libs/UnityObject2.js"></script>
 	<script src="core_libs/unityInit.js"></script>
-    <script src="core_libs/EnsembleEngine.js"></script>
-	<script src="core_libs/partytime.js"></script>
+ 
     <link rel="stylesheet" href="WebGame.css"/>
 </head>
 <body>
@@ -60,26 +64,20 @@
 	<div id="tabs">
 		<!-- Nav tabs -->
 		<div id="tabs-navigation">
-		<a class="navtab" href="#characters">Characters</a>
 		<a class="navtab" href="#socialgraph" onresize="layoutGraph()">Social Graph</a>
+		<a class="navtab" href="#characters">Characters</a>
 		<a class="navtab" href="#gamelog" onresize="layoutLog()">Game Log</a>
 		<a class="navtab" href="#mcts" >Strategy Analysis</a>
 		<a class="navtab" href="#editor">Rules Editor</a>
 		</div>
 		<!-- Tab panes -->
 		<div id="tabs-content">
+			<div id="socialgraph">
+				<div id="graph-console"></div>
+				<div id="graph-canvas"></div>
+			</div>
 			<div id="characters">
 				<div id="characters-content"></div>
-			</div>
-			<div id="socialgraph">
-				<div id="graph-console">Examine character:
-					<div id="ann">Ann<img src="img/ann.png"/></div>
-					<div id="bob">Bob<img src="img/bob.png"/></div>
-					<div id="carlos">Carlos<img src="img/carlos.png"/></div>
-					<div id="dre">Dre<img src="img/dre.png"/></div>
-					<div id="eve">Eve<img src="img/eve.png"/></div>
-                </div>
-				<div id="graph-canvas"></div>
 			</div>
 			<div id="gamelog">
 				<div id="updates"></div>
@@ -164,7 +162,7 @@
 
 function displaySplashScreen()
 {//TODO: display the relationships and character pictures more automatically
-	//document.getElementById("splashscreen").style.display="none";
+	document.getElementById("splashscreen").style.display="none";//suppressed for debugging
 }
 displaySplashScreen();
 function submitUser()
@@ -253,7 +251,7 @@ function submitUser()
 			selectedTab=this;
 			layoutUpdate(this);//hack to execute an update function for the visible tab
         return false;
-    }).filter(":first").click();
+    });//ensemble init calls the first tab's onclick
 
 window.onkeydown=function(e){
 	if(e.keyCode==9){$(selectedTab.nextTab).click();}//tab key switches tab
