@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html>
+  <head>
+  <link rel="stylesheet" href="d3.slider.css" />
+    <style>
+	.d3-slider-horizontal {
+    width: 350px;
+}  
+#records{
+    width:600px;
+    top:10px;
+	left:10px;
+    position:absolute;
+}
+#controls{
+    width:400px;
+    top:10px;
+	right:10px;
+    position:absolute;
+}
+
+
+       #map {
+        height: 600px;
+        width: 70%;
+       }
+	   .infoWindow {
+        width: 250px;
+       }
+    </style>
+  </head>
+  <body>
+    <h3>My Google Maps Demo</h3>
+	<div id="controls"></div>
+    <div id="map"></div>
+	<script src="d3.js"></script>
+<script src="d3.tip.js"></script>
+<script src="d3.slider.js"></script>
+
+	<script async defer
+    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCnFl1hyA8Keag6b0JHNuRszbNs5PwteBA&callback=initMap">
+    </script>
+	<script src="markerclusterer.js"></script>
+    <script>
+	
+	var markers;
+	var markerCluster;
+	var map;
+	var infowindow;
+	var labels = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+	var testCenter={lat: 40.725, lng:-73.99};
+	
+    function initMap() {
+		
+        map = new google.maps.Map(document.getElementById('map'), {
+          zoom: 15,
+			center: testCenter
+        });
+		
+		 infowindow = new google.maps.InfoWindow({maxWidth: 250});
+		
+		
+		d3.json("test.json",function(error,data){if(error)console.log(error);myevents=data;initCustomization();displayRecords();});
+		
+		
+      }
+      
+	  
+	  
+	  
+	  
+	  
+	  
+var ctrls={
+created_time:{type:"range",name:"Time range",value_min:1384260000,value_max:1385010000,min:1384260000,max:1385010000,step:1000},
+text:{type:"string",name:"Filter by text",value:""},
+};
+
+var myevents;//loaded in the preload at the bottom
+
+//now using one marker cluster
+
+function filterByControls(d)
+{//automatically filters by all ranges; no need for new code if you add new filtering attributes, just change the ctrls variable, and make sure the attributes in ctrls  correspond to data attributes
+	for(var v in ctrls)
+	{
+		if(ctrls[v].type=="range")
+		{	if(v in d==false)continue;
+			if((Number(d[v])>ctrls[v].value_max)||(Number(d[v])<ctrls[v].value_min)){return false;}
+		}
+		if(ctrls[v].type=="string")
+		{	if(v in d==false)continue;
+			if(d[v].toString().indexOf(ctrls[v].value)<0){return false;}
+		}
+	}
+	//add other kinds of filters here if necessary
+	return true;//true means it will be displayed
+}
+var displayed;var markerClusters=[];
+function displayRecords()
+{
+	markerClusters.map(function(c,i){c.clearMarkers(); });markerClusters=[];
+	for(var i=0;i<myevents.length;i++)
+	{
+		if(myevents[i].label==-1)continue;
+		displayed=myevents[i].tweets.filter(filterByControls);
+		if(displayed.length==0)continue;
+		var temp_markers = myevents[i].tweets.map(function(tweet, j) {//if one tweet of an event is eligble, show the whole event
+          var marker= new google.maps.Marker({
+            position: {lat:tweet.coordinates.coordinates[1],lng:tweet.coordinates.coordinates[0]},
+            label: labels[i % labels.length]
+          });
+			google.maps.event.addListener(marker, 'click', (function(marker,i, j) {
+			return function() {
+			  infowindow.setContent(myevents[i].tweets[j].text);
+			  infowindow.open(map, marker);
+			}
+		  })(marker,i, j));
+		  return marker;
+        });
+	
+		markerClusters.push(new MarkerClusterer(map, temp_markers, {imagePath: 'm'}));
+	}
+	
+	
+}
+function toText(d)
+{
+	var t="";
+	for(i in  d){t+=i+": "+d[i]+", ";}
+	return t.substring(0,t.length-2);
+}
+function mySlide1(e, ui) 
+{
+	//console.log(ui);
+	var mydiv=ui.handle.parentNode.parentNode;
+	var v=mydiv.getElementsByTagName("p")[1].innerText;
+	ctrls[v].value=ui.value;
+	displayRecords();
+}
+function mySlide2(evt, value) 
+{
+	var mydiv=evt.toElement;
+	if(mydiv.className!="ctrls-div"){mydiv=mydiv.parentNode;if(mydiv.className!="ctrls-div"){mydiv=mydiv.parentNode;if(mydiv.className!="ctrls-div"){return;}}}//sometimes the event gets onto wrong elements and I need to get the triggering slider
+	var v=mydiv.getElementsByTagName("p")[1].innerText;
+	ctrls[v].value=value;
+	if(typeof(ctrls[v].onChange) =="function"){ctrls[v].onChange()};
+	displayRecords();
+}
+function mySlide(evt, value,v) 
+{
+	ctrls[v].value=value;
+	if(typeof(ctrls[v].onChange) =="function"){ctrls[v].onChange()};
+	displayRecords();
+}
+function myRangeSlideMin(evt, value,v) 
+{
+	ctrls[v].value_min=value;//no checks now?
+	if(typeof(ctrls[v].onChange) =="function"){ctrls[v].onChange()};
+	displayRecords();
+}
+function myRangeSlideMax(evt, value,v) 
+{
+	ctrls[v].value_max=value;
+	if(typeof(ctrls[v].onChange) =="function"){ctrls[v].onChange()};
+	displayRecords();
+}
+function myCheck(evt, value,value2,v) 
+{//v: used hack with eval to create functions
+	ctrls[v].value=!(ctrls[v].value);
+	if(typeof(ctrls[v].onChange) =="function"){ctrls[v].onChange()};
+	displayRecords();
+}
+function myTextInput(evt, value,value2,v) 
+{//v: used hack with eval to create functions
+	ctrls[v].value=d3.select(".textarea-"+v)[0][0].value;
+	if(typeof(ctrls[v].onChange) =="function"){ctrls[v].onChange()};
+	displayRecords();
+}
+function initCustomization()
+{
+	var console=d3.select("#controls");
+	
+	for(var v in ctrls)
+	{
+		if(ctrls[v].type=="number")
+		{
+			var myfun;
+			var slider=d3.slider().axis(true).min(ctrls[v].min).max(ctrls[v].max).step(ctrls[v].step).value(ctrls[v].value)
+			.on("slide",eval("myfun=function(evt,value){mySlide(evt,value,\""+v+"\")}"));//hack
+			var mydiv=console.append("div");mydiv.append("p").text(ctrls[v].name);
+			mydiv.append("div").call(slider);
+			mydiv.append("p").style("display","none").text(v);//hack to save the ctrls variable name in the element
+			
+		}
+		if(ctrls[v].type=="range")
+		{
+			var myfun1;var myfun2;
+			var slider1=d3.slider().axis(true).min(ctrls[v].min).max(ctrls[v].max).step(ctrls[v].step).value(ctrls[v].value_min)
+			.on("slide",eval("myfun1=function(evt,value){myRangeSlideMin(evt,value,\""+v+"\")}"));
+			var slider2=d3.slider().min(ctrls[v].min).max(ctrls[v].max).step(ctrls[v].step).value(ctrls[v].value_max)
+			.on("slide",eval("myfun2=function(evt,value){myRangeSlideMax(evt,value,\""+v+"\")}"));
+			var mydiv=console.append("div");mydiv.append("p").text(ctrls[v].name);
+			mydiv.append("div").call(slider1).call(slider2);
+			mydiv.append("p").style("display","none").text(v);//hack to save the ctrls variable name in the element
+		}
+		if(ctrls[v].type=="boolean")
+		{
+			var myfun;
+			var mydiv=console.append("div");mydiv.append("p").text(ctrls[v].name);
+			mydiv.append("input").attr("type","checkbox").property("checked",ctrls[v].value).on("change",eval("myfun=function(evt,value,value2){myCheck(evt,value,value2,\""+v+"\")}"));
+			mydiv.append("p").style("display","none").text(v);//hack to save the ctrls variable name in the element
+		}
+		if(ctrls[v].type=="string")
+		{
+			var myfun;
+			var mydiv=console.append("div");mydiv.append("p").text(ctrls[v].name);
+			mydiv.append("textarea").attr("cols",60).attr("class","textarea-"+v).property("text",ctrls[v].value).on("input",eval("myfun=function(evt,value,value2){myTextInput(evt,value,value2,\""+v+"\")}"));
+			mydiv.append("p").style("display","none").text(v);//hack to save the ctrls variable name in the element
+		}
+	}
+}
+
+
+	  
+    </script>
+    
+  </body>
+</html>
+
+
+
+
+
+
+
+
+<script>
+/*
+
+function initMap() {
+  var uluru = {lat: -25.363, lng: 131.044};
+  var map = new google.maps.Map(document.getElementById('map'), {
+    zoom: 4,
+    center: uluru
+  });
+
+  var contentString = '<div id="content">'+
+      '<div id="siteNotice">'+
+      '</div>'+
+      '<h1 id="firstHeading" class="firstHeading">Uluru</h1>'+
+      '<div id="bodyContent">'+
+      '<p><b>Uluru</b>, also referred to as <b>Ayers Rock</b>, is a large ' +
+      'sandstone rock formation in the southern part of the '+
+      'Northern Territory, central Australia. It lies 335&#160;km (208&#160;mi) '+
+      'south west of the nearest large town, Alice Springs; 450&#160;km '+
+      '(280&#160;mi) by road. Kata Tjuta and Uluru are the two major '+
+      'features of the Uluru - Kata Tjuta National Park. Uluru is '+
+      'sacred to the Pitjantjatjara and Yankunytjatjara, the '+
+      'Aboriginal people of the area. It has many springs, waterholes, '+
+      'rock caves and ancient paintings. Uluru is listed as a World '+
+      'Heritage Site.</p>'+
+      '<p>Attribution: Uluru, <a href="https://en.wikipedia.org/w/index.php?title=Uluru&oldid=297882194">'+
+      'https://en.wikipedia.org/w/index.php?title=Uluru</a> '+
+      '(last visited June 22, 2009).</p>'+
+      '</div>'+
+      '</div>';
+
+  var infowindow = new google.maps.InfoWindow({
+    content: contentString
+  });
+
+  var marker = new google.maps.Marker({
+    position: uluru,
+    map: map,
+    title: 'Uluru (Ayers Rock)'
+  });
+  marker.addListener('click', function() {
+    infowindow.open(map, marker);
+  });
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ function eqfeed_callback(results) {
+        var heatmapData = [];
+        for (var i = 0; i < results.features.length; i++) {
+          var coords = results.features[i].geometry.coordinates;
+          var latLng = new google.maps.LatLng(coords[1], coords[0]);
+          heatmapData.push(latLng);
+        }
+        var heatmap = new google.maps.visualization.HeatmapLayer({
+          data: heatmapData,
+          dissipating: false,
+          map: map
+        });
+      }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function initialize() {
+
+    var overlay = new google.maps.OverlayView();
+
+    var tooltip = d3.select("body").append("div").attr("class", "tooltip");
+
+    // Add the container when the overlay is added to the map.
+    overlay.onAdd = function () {
+        var layer = d3.select(this.getPanes().overlayLayer).append("div")
+            .attr("class", "stations");
+
+        // Draw each marker as a separate SVG element.
+        // We could use a single SVG, but what size would it have?
+        overlay.draw = function () {
+            var projection = this.getProjection(),
+                padding = 10;
+
+            var marker = layer.selectAll("svg")
+                .data(d3.entries(points))
+                .each(transform) // update existing markers
+            .enter().append("svg:svg")
+                .each(transform)
+                .attr("class", "marker");
+
+            // Add a circle.
+            marker.append("svg:circle")
+                .attr("r", 4.5)
+                .attr("cx", padding)
+                .attr("cy", padding)
+
+            function transform(d) {
+                console.log(d);
+                console.log(d.value.geometry.coordinates);
+                d = new google.maps.LatLng(d.value.geometry.coordinates);
+                d = projection.fromLatLngToDivPixel(d);
+                return d3.select(d)
+                    .style("left", (d.x - padding) + "px")
+                    .style("top", (d.y - padding) + "px");
+                print(d);
+            }
+        };
+    };
+
+    // Bind our overlay to the map…
+    overlay.setMap(map);
+
+    //});
+
+}
+*/
+</script>
