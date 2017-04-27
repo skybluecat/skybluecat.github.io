@@ -60,7 +60,7 @@
 		 infowindow = new google.maps.InfoWindow({maxWidth: 250});
 		
 		
-		d3.json("test.json",function(error,data){if(error)console.log(error);myevents=data;initCustomization();displayRecords();});
+		d3.json("data.json",function(error,data){if(error)console.log(error);myevents=data;initCustomization();displayRecords();});
 		
 		
       }
@@ -373,7 +373,7 @@ function initialize() {
         };
     };
 
-    // Bind our overlay to the map…
+    // Bind our overlay to the mapÂ…
     overlay.setMap(map);
 
     //});
