@@ -49,8 +49,8 @@ function mergeByRule(room,tuple,lhs,rhs)
 {
 	//calls merge to turn the tuple's semantics into one semantic object, and wrap it up with a syntactic object
 	//returns an object with the cost, or undefined if it fails
-	
-	var headIndex=rhs.symbols.findIndex(function(s){if(s.isHead){return true;}return false;});if(headIndex<0){console.log("error: no head item found for rule of "+lhs+": "+JSON.stringify(rhs));}
+	printLog("Attempting to merge:",tuple,"by rule",lhs,rhs)
+	var headIndex=rhs.symbols.findIndex(function(s){if(s.isHead){return true;}return false;});if(headIndex<0){printLog("error: no head item found for rule of "+lhs+": "+JSON.stringify(rhs));}
 	var remaining=copyObj(tuple);var nextTail=getNextTail(remaining,rhs.symbols);
 	while(nextTail!==undefined)
 	{
@@ -58,6 +58,7 @@ function mergeByRule(room,tuple,lhs,rhs)
 		if(!result){return false;}//result has a semantic object and a cost (sum of component costs and merge cost), but no syntactic object
 		remaining[headIndex]=result;
 		delete remaining[nextTail];
+		nextTail=getNextTail(remaining,rhs.symbols);
 	}
 	if(!remaining[headIndex].cost)remaining[headIndex].cost=0;
 	if(rhs.cost)remaining[headIndex].cost+=rhs.cost;
@@ -109,8 +110,11 @@ function merge(room,headObj, tailObj, hint)//Combines objects in a possible synt
 				case "recipient":
 				case "topic":
 				case "quality":
+				//the value - after attaching this, the predicate changes type to boolean
 					if(head.expr.value){printLog("property already has a value",head);return false;}
-					head.expr.value=tail;headObj.cost+=tailObj.cost;return headObj;
+					head.expr.value=tail;headObj.cost+=tailObj.cost;
+					head.type="boolean";
+					return headObj;
 					break;
 				default:
 					printLog("Merge error: unknown hint for a property",hint);return false;
@@ -129,7 +133,8 @@ function merge(room,headObj, tailObj, hint)//Combines objects in a possible synt
 			{printLog("Merge info: cannot cast the value to the property; expected type ",expected,"actual tail",tail);return false;}
 			var temp={type:"boolean",expr:{predicate:propertyName,value:tail}};
 			if(!head.constraint){head.constraint=[];}head.constraint.push(temp);
-			return {result:temp,cost:headObj.cost+tailObj.cost};
+			headObj.cost=headObj.cost+tailObj.cost;
+			return headObj;
 		}
 		
 		else{printLog("Merge error: this head cannot take hints",head);return false;}
@@ -146,7 +151,8 @@ function merge(room,headObj, tailObj, hint)//Combines objects in a possible synt
 		if(room.model.type[head.type].property.indexOf(tail.expr.predicate)==-1){printLog("merge error: attempt to merge a tail predicate that cannot describe the head",head, tail);return false;}
 		
 		if(!head.constraint){head.constraint=[];}head.constraint.push(tail);
-		return {result:temp,cost:headObj.cost+tailObj.cost};
+		headObj.cost+=tailObj.cost;
+		return headObj;
 	}
 	
 	//if no hint exists and the tail is not boolean, and if the head is a type that takes properties(disregarding whether it's a property access), attach it as a constraint on the value of an property of that type (and complain, guess or give up as appropriate, if there are none or multiple such properties). In this case the scope of the tail must be the head itself and not higher up. (the case of property accesses, like "age of Alice", is taken care of in the hinted case above; this case is for phrases like "red carpet" where it's not made explicit what property is being used, unlike "red-surface-colored carpet")
@@ -156,8 +162,8 @@ function merge(room,headObj, tailObj, hint)//Combines objects in a possible synt
 		if(allowed.length==0){printLog("merge error: attempt to merge a tail value that the head cannot take",head, tail);return false;}
 		if(allowed.length>1){printLog("merge error: attempt to merge a tail value that the head can take in multiple ways",head, tail);return false;}
 		var temp={type:"boolean",expr:{predicate:allowed[0],value:tail}};//no need to check type again
-		if(!head.constraint){head.constraint=[];} head.constraint.push(temp);
-		return {result:temp,cost:headObj.cost+tailObj.cost};
+		headObj.cost+=tailObj.cost;
+		return headObj;
 	}
 	
 	//todo: if no hint exists and the tail is not boolean, and if the head is a type that does not take properties(like a number) - I'm not entirely sure what to do; it can become a list if both are of the same basic type (like "1,2"), and probably should be rejected as nonsense otherwise
@@ -210,7 +216,7 @@ function getLeftTuples(room,end,symbols,index)
 	//2.recursively get the others
 	//combine 1 and 2 in all possible ways
 	
-	printLog("get left tuples: ",end,symbols,index);
+	//printLog("get left tuples: ",end,symbols,index);
 	if(index<0){return [[]];}
 	if(end<0)return [];
 	var current=room.parseTable[end].end;if((end>0)&&(current.length==0))current=current.concat(room.parseTable[end-1].end);//only skip if there's nothing in that space
@@ -229,7 +235,7 @@ function getLeftTuples(room,end,symbols,index)
 }
 function getRightTuples(room,start,symbols,index)
 {
-	printLog("get right tuples: ",start,symbols,index);
+	//printLog("get right tuples: ",start,symbols,index);
 	if(index>=symbols.length){return [[]];}
 	if(start>=room.parseTable.length)return [];
 	var current=room.parseTable[start].start;if((start<room.parseTable.length)&&(current.length==0))current=current.concat(room.parseTable[start+1].start);//only skip if there's nothing in that space
@@ -250,6 +256,7 @@ function getRightTuples(room,start,symbols,index)
 function parse(room,str)
 {
 	//debug
+	templogs="";
 	printLog("parsing: ",str);
 	room.tokensCreated=0;room.nodesCreated=0;room.mergeAttempts=0;
 	//var room=rooms[playerObj.room];
