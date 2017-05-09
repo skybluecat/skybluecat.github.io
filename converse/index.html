@@ -1,0 +1,203 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>Parser Demo</title>
+    <script src="buckets.js"></script>
+	<script src="converse.js"></script>
+</head>
+<body>
+
+<p>Type your sentence here. See console for errors and messages.</p>
+<p id="helptext">Currently the model contains:
+</p>
+<textarea id="userinput" rows="1" style="width:50%">Alice in chair</textarea>
+<input type="button" id="parse" value="parse" onclick="parsedemo()" />
+<p id="parseresult">
+</p>
+<textarea id="parselog" rows="20" style="width:50%"></textarea>
+
+<script>
+var userinput=document.getElementById("userinput");
+var parseresult=document.getElementById("parseresult");
+var helptext=document.getElementById("helptext");
+var parselog=document.getElementById("parselog");
+
+var room={};
+
+room.model={
+type:{  
+	//core types
+	type:{property:["name","super_type","basic_type","property","registered","constraint"]},
+	
+	//properties are not types; they "take" values and owners through special code, unlike other types
+	
+	property: {property:["name","expected_type","default_value","multiple","inverse","role","function_based","getter_function","tester_function"]},
+	
+	//action:{property:["name","property","condition","effect"]},
+	action:{super_type:["type"],basic_type:"type",property:["name","super_type","basic_type","property","registered"],constraint:[{predicate:"basic_type",value:["event"]}]},//just means that actions are subtypes of events; except for that, they can have any parameters they like
+	"event":{registered:false},
+	
+	//some actions
+	move:{property:["actor","destination"],constraint:[{predicate:"adjacent",owner:{predicate:"actor"},value:[{predicate:"destination"}]}]},
+	
+	//is description even a real type? or just used in parsing?
+	expression:{property:["predicate","value","owner"],registered:false},//is exact match needed/correct?
+	
+	//special types
+	"number":{registered:false},
+	"boolean":{registered:false},
+	"function":{registered:false},
+	"string":{registered:false},
+	"list":{registered:false},
+	"*":{registered:false},
+	
+	//world model
+	thing:{property:["name"]},
+	person:{super_type:["thing"],basic_type:"thing",property:["name","friendly","container"]}
+},
+property:{
+	//in addition to explicitly defined properties, all types create properties of the same name that can be multiple and whose inverse has type "*"(so you can have "a person has a number" and can't have "a person has some text called number" or "what kind of object has a number?")
+	
+	//special properties that belong to no particular type
+	name:{expected_type:"string",required:true},//now getting rid of "PK" and use "name" as the ID when applicable
+	alias:{expected_type:"string",multiple:true},
+	role:{expected_type:"string",multiple:true},//??
+	expected_type:{expected_type:"type"},
+	actual_type:{expected_type:"type",multiple:true},
+	property:{expected_type:"property",multiple:true},//for all type-like or instantiable stuff, like actions
+	
+	//properties of "type"
+	parent_type:{expected_type:"type",owner_type:"type",multiple:true,inverse:"child_type"},
+	child_type:{expected_type:"type",owner_type:"type",multiple:true,inverse:"parent_type"},
+	basic_type:{expected_type:"type",owner_type:"type"},
+	registered:{expected_type:"boolean",owner_type:"type",default_value:false},
+	
+	//properties of "property"
+	expected_type:{expected_type:"type",required:true},
+	required:{expected_type:"boolean",owner_type:"property",default_value:false},//required and default values should be mutually exclusive
+	default_value:{expected_type:"*"},
+	multiple:{expected_type:"boolean"},//all multi-valued properties are arrays
+	inverse:{expected_type:"property"},//inverse just means for an instance of R1(a,b), we ensure a corresponding R2(b,a), not vice versa
+	function_based:{expected_type:"boolean"},
+	getter_function:{expected_type:"function"},
+	tester_function:{expected_type:"function"},
+	
+	//properties of "action": it does not return a value, and no record of events are kept; it uses parameters and conditions like in PDDL, not rules; 
+	condition:{expected_type:"expression",multiple:true},
+	effect:{expected_type:"expression",multiple:true},
+	
+	//actually a description has: a type, possibly a value(string or object) or a definition(expression), boolean cosntraints, and maybe tags about definiteness and quantifiers
+	//type:{expected_type:"type",multiple:true},//type of the described value
+	//value:{expected_type:"description",role:["subject"],multiple:true},
+	//definition:{expected_type:"expression"},
+	//constraints:{expected_type:"expression",multiple:true},//for cases like "people who like Alice"(a people description) as distinct from "the person likes Alice"(a boolean)
+
+	
+	//expression
+	exact:{expected_type:"boolean",default_value:false},
+	predicate:{expected_type:"property"},
+	value:{expected_type:"*"},
+	owner:{expected_type:"expression"},
+	quantifier:{expected_type:"quantifier"},//??
+	
+	//we do have the concept of a direct value or set/list of direct values, and "value" is not a type. values not wrapped in descriptions can be any native JS value, and we only know their type by where they are used.
+	
+	//world model - properties of "thing" and its subtypes
+	container:{expected_type:"thing"},
+	friendly:{expected_type:"boolean"}
+	
+},
+
+//action:
+//{
+//	move:{parameter:["actor","destination"],condition:[{type:"property",value:"subset_of",lhs:{},rhs:{}}]},
+//},
+role:
+{
+	subject:{},object:{},theme:{},actor:{},recipient:{}
+},
+thing:{
+Alice:{type:"person",friendly:true},
+Bob:{type:"person",container:"chair"},
+chair:{type:"thing"}
+},
+number:{},
+string:{},
+list:{}
+};
+
+
+
+
+
+
+
+
+room.grammar={
+	NP:[{symbols:[{type:"ADJ"},{type:"NP",isHead:true}]},{symbols:[{type:"NP",isHead:true},{type:"PP"}]}],
+	PP:[{symbols:[{type:"PREP",isHead:true},{type:"NP"}] }  ],
+	VP:[],
+	TEST:[]
+};
+
+room.tokenizer=[{pos:"N",type:"thing",property:"name"},{pos:"N",type:"kind",property:"name"},{pos:"N",type:"type",property:"name"},];//
+
+
+
+room.glossary={//g is grammar, m is meaning
+
+is:{g:{type:"V"}},
+//actually determiners are problematic for the merging routine now
+thing:{g:"N",type:"thing"},
+TEST:{g:{type:"TEST"},m:{type:"*"}},
+
+Alice:{g:{type:"NP"},m:{type:"person",value:"Alice"}},
+Bob:{g:{type:"NP"},m:{type:"person",value:"Bob"}},
+chair:{g:{type:"NP"},m:{type:"thing",value:"chair"}},
+friendly:{g:{type:"ADJ"},m:{type:"boolean",expr:{predicate:"friendly"}}},
+"in":{g:{type:"PREP"},m:{type:"thing",expr:{predicate:"container"}}},
+
+};
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+initModel(room);
+
+function parsedemo()
+{
+	parseresult.innerText=JSON.stringify(parse(room,userinput.value))+"\n Tokens:"+room.tokensCreated+"Nodes expanded: "+room.nodesCreated+" merge attempts: "+room.mergeAttempts;
+	parselog.innerText=room.logs;
+}
+
+function initModel(room)
+{//add the stuff that I omit because they are repetitive
+	var str="Types: ";
+	for (var n in room.model.type){room.model.type[n].name=n;str+=n+", ";} str+=" \nProperties: ";
+	for (var n in room.model.property){room.model.property[n].name=n;room.model.property[n].property=["owner","target"];str+=n+", ";} str+=" \nActions:";
+	for (var n in room.model.action){room.model.action[n].name=n;str+=n+", ";} str+=" \nThings:";
+	for (var n in room.model.thing){room.model.thing[n].name=n;str+=n+", ";}
+	str+=" \n\n Known words:";
+	for (var n in room.glossary){str+=n+", ";}
+	helptext.innerText+=str;
+}
+
+
+
+
+
+</script>
