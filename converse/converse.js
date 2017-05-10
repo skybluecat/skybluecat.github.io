@@ -125,7 +125,7 @@ function merge(room,headObj, tailObj, hint)//Combines objects in a possible synt
 		if((head.type)&&(head.type!="*"))//"*" (usually for vague pronouns) doesn't work like this, but the obstacle is syntactic not semantic("red it" is ungrammatical). or should "*" be allowed, as in "the red thingie"?
 		{
 			//treat it as a type taking properties
-			var hinted=room.model.type[head.type].property.filter(function(p){return (room.model.property[p].role)&&(room.model.property[p].role[hint]);});//??
+			var hinted=room.model.type[head.type].property.filter(function(p){return (room.model.property[p].role)&&(room.model.property[p].role.indexOf(hint)>=0);});//??
 			if(hinted.length!=1){printLog("Merge error: no unique hinted property for hint and head",hint,head);return false;}
 			//cast the tail into a property description with tail as the value
 			var propertyName=hinted[0];var expected=room.model.property[propertyName].expected_type;var types=room.model.type;
@@ -283,7 +283,7 @@ function parse(room,str)
 		printLog("created: ",c);
 		room.parseTable[c.start].start.push(c);room.parseTable[c.end].end.push(c);
 		//add c to the table - only after it came off the queue!
-		if((c.start==0)&&(c.length==str.length))//todo: trim the string first? The idea is the parse should contain all meaningful parts of the string; we are not required to accomodate trailing garbage because it's in a chat setting
+		if((c.start==0)&&(c.end==str.length-1))//todo: trim the string first? The idea is the parse should contain all meaningful parts of the string; we are not required to accomodate trailing garbage because it's in a chat setting
 		{
 			printLog("a good candidate found: ",c);
 			if(c.cost<bestCost){bestCost=c.cost;}

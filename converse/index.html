@@ -35,11 +35,11 @@ type:{
 	property: {property:["name","expected_type","default_value","multiple","inverse","role","function_based","getter_function","tester_function"]},
 	
 	//action:{property:["name","property","condition","effect"]},
-	action:{super_type:["type"],basic_type:"type",property:["name","super_type","basic_type","property","registered"],constraint:[{predicate:"basic_type",value:["event"]}]},//just means that actions are subtypes of events; except for that, they can have any parameters they like
+	action:{super_type:["type"],basic_type:"type",property:["name","super_type","basic_type","property","registered","condition","effect"],constraint:[{predicate:"basic_type",value:["event"]}]},//just means that actions are subtypes of events; except for that, they can have any parameters they like
 	"event":{registered:false},
 	
 	//some actions
-	move:{property:["actor","destination"],constraint:[{predicate:"adjacent",owner:{predicate:"actor"},value:[{predicate:"destination"}]}]},
+	move:{type:"action",basic_type:"event",super_type:["event"],property:["actor","destination"], effect:[{predicate:"container",owner:{predicate:"actor"},value:{predicate:"destination"}}]},
 	
 	//is description even a real type? or just used in parsing?
 	expression:{property:["predicate","value","owner"],registered:false},//is exact match needed/correct?
@@ -53,11 +53,10 @@ type:{
 	"*":{registered:false},
 	
 	//world model
-	thing:{property:["name"]},
+	thing:{property:["name","container"]},
 	person:{super_type:["thing"],basic_type:"thing",property:["name","friendly","container"]}
 },
 property:{
-	//in addition to explicitly defined properties, all types create properties of the same name that can be multiple and whose inverse has type "*"(so you can have "a person has a number" and can't have "a person has some text called number" or "what kind of object has a number?")
 	
 	//special properties that belong to no particular type
 	name:{expected_type:"string",required:true},//now getting rid of "PK" and use "name" as the ID when applicable
@@ -105,14 +104,16 @@ property:{
 	
 	//world model - properties of "thing" and its subtypes
 	container:{expected_type:"thing"},
-	friendly:{expected_type:"boolean"}
+	friendly:{expected_type:"boolean"},
+	
+	//action parameters
+	actor:{expected_type:"person",role:["subject","actor"]},
+	destination:{expected_type:"thing"},
+	direction:{expected_type:"direction",role:["object"]}
+	//"Alice goes south"??
 	
 },
 
-//action:
-//{
-//	move:{parameter:["actor","destination"],condition:[{type:"property",value:"subset_of",lhs:{},rhs:{}}]},
-//},
 role:
 {
 	subject:{},object:{},theme:{},actor:{},recipient:{}
@@ -137,7 +138,8 @@ list:{}
 room.grammar={
 	NP:[{symbols:[{type:"ADJ"},{type:"NP",isHead:true}]},{symbols:[{type:"NP",isHead:true},{type:"PP"}]}],
 	PP:[{symbols:[{type:"PREP",isHead:true},{type:"NP",hint:"object"}] }  ],
-	VP:[],
+	VP:[{symbols:[{type:"V",isHead:true},{type:"NP",hint:"object"}]},{symbols:[{type:"V",isHead:true}]},{symbols:[{type:"VP",isHead:true},{type:"PP"}]}],//todo: add "transitive" tags
+	S:[{symbols:[{type:"NP",hint:"subject"},{type:"VP",isHead:true}]}],
 	TEST:[]
 };
 
@@ -147,7 +149,7 @@ room.tokenizer=[{pos:"N",type:"thing",property:"name"},{pos:"N",type:"kind",prop
 
 room.glossary={//g is grammar, m is meaning
 
-is:{g:{type:"V"}},
+//is:{g:{type:"V"}},
 //actually determiners are problematic for the merging routine now
 thing:{g:"N",type:"thing"},
 TEST:{g:{type:"TEST"},m:{type:"*"}},
@@ -157,6 +159,9 @@ Bob:{g:{type:"NP"},m:{type:"person",value:"Bob"}},
 chair:{g:{type:"NP"},m:{type:"thing",value:"chair"}},
 friendly:{g:{type:"ADJ"},m:{type:"boolean",expr:{predicate:"friendly"}}},
 "in":{g:{type:"PREP"},m:{type:"thing",expr:{predicate:"container"}}},
+
+move:{g:{type:"V"},m:{type:"move"}},
+to:{g:{type:"PREP"},m:{type:"thing",expr:{predicate:"destination"}}}
 
 };
 
