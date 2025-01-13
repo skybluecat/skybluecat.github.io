@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Continuous Space Chess</title>
+    <style>
+        canvas {
+            border: 1px solid black;
+            display: block;
+            margin: auto;
+        }
+        body {
+            text-align: center;
+            font-family: Arial, sans-serif;
+        }
+      #chessContainer{
+        display:flex
+      }
+      #movesListContainer{
+        display:flex;
+        flex-flow:column
+      }
+      .moves-list {
+
+      max-height: 450px;
+      overflow-y: auto;
+      border: 1px solid #ccc;
+      width: 300px;
+      margin: 10px 0;
+    }
+       .move {
+      padding: 5px;
+      cursor: pointer;
+    }
+    .move.active {
+      background-color: #f0f8ff;
+      font-weight: bold;
+    }
+    .controls {
+      display: flex;
+      gap: 10px;
+    }
+
+    .promotion-menu {
+      display: none;
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: #fff;
+      border: 2px solid #000;
+      border-radius: 10px;
+      padding: 20px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    }
+    .promotion-menu h2 {
+      margin: 0 0 10px;
+    }
+    .promotion-options button {
+      padding: 10px 20px;
+      margin: 5px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+    </style>
+</head>
+<body>
+    <div id="chessContainer">
+    <canvas id="chessBoard" width="500" height="500"></canvas>
+      <div id="movesListContainer">
+        <h3></h2>
+        <div class="moves-list" id="movesList"></div>
+          <div class="controls">
+            <button onclick="goBack()">← Back</button>
+            <button onclick="goForward()">Forward →</button>
+          </div>
+      </div>
+   </div>
+   <div class="promotion-menu" id="promotionMenu">
+    <h2>Promote Your Piece</h2>
+    <div class="promotion-options" id="promotionContainer">
+    </div>
+  </div>
+
+    <script >
+
+    const canvas = document.getElementById('chessBoard');
+      const ctx = canvas.getContext('2d');
+
+      const boardSize = 500;
+      const pieceRadius = 15;
+      const marginOfError = 0.2; // Tolerance for approximate movement
+      let scaling = boardSize / 9;
+
+      let moves = [];
+      let currentMoveIndex = -1;
+      let obstaclePiece = null;
+      let selectedPiece = null;
+      let lastGoodTargetLocation=null;
+      const movesList = document.getElementById('movesList');
+
+      // Render the moves list
+      function renderMoves() {
+          movesList.innerHTML = '';
+          moves.forEach((move, index) => {
+              const moveElement = document.createElement('div');
+              moveElement.classList.add('move');
+              if (index === currentMoveIndex) moveElement.classList.add('active');
+              moveElement.textContent = `${index + 1}: ${pieceTypes[move.piece.type].symbols[(move.piece.color=="white")?0:1]} (${move.source.x.toFixed(1)}, ${move.source.y.toFixed(1)}) ${move.capturedPiece?"x":"→"} (${move.target.x.toFixed(1)}, ${move.target.y.toFixed(1)})`;
+              moveElement.onclick = () => jumpToMove(index);
+              movesList.appendChild(moveElement);
+          });
+      }
+      renderMoves();
+
+      function goBack() {
+          if (currentMoveIndex < 0) return false;
+          let move = moves[currentMoveIndex];
+          let p = move.piece;
+          p.x = move.source.x;
+          p.y = move.source.y;
+          if (move.capturedPiece) {
+              let c = move.capturedPiece;
+              c.x = move.capturedLocation.x;
+              c.y = move.capturedLocation.y;
+              pieces.push(c);
+          }
+          if (move.originalType) {
+              p.type = move.originalType;
+          }
+          currentMoveIndex = currentMoveIndex - 1;
+          renderMoves();
+          drawBoard();
+
+      }
+
+      function goForward() {
+          if (currentMoveIndex + 1 >= moves.length) return false;
+          let move = moves[currentMoveIndex + 1];
+          let p = move.piece;
+          p.x = move.target.x;
+          p.y = move.target.y;
+          if (move.capturedPiece) {
+              let c = move.capturedPiece;
+              c.x = move.capturedLocation.x;
+              c.y = move.capturedLocation.y;
+              let index = pieces.indexOf(c);
+              pieces.splice(index, 1);
+          }
+          if (move.promoteType) {
+              p.type = move.promoteType;
+          }
+          currentMoveIndex = currentMoveIndex + 1;
+          renderMoves();
+          drawBoard();
+      }
+
+
+      function jumpToMove(index) {
+          while (index != currentMoveIndex) {
+              if (index > currentMoveIndex) { goForward(); } else { goBack(); }
+          }
+          renderMoves();
+      }
+
+      let pieceTypes = {
+          king: { symbols: "♔♚", moves: [{ x: 1, y: 0 }, { x: 1, y: 1 }], rider: false },
+          queen: { symbols: "♕♛", moves: [{ x: 1, y: 0 }, { x: 1, y: 1 }], rider: true },
+          rook: { symbols: "♖♜", moves: [{ x: 1, y: 0 }], rider: true },
+          bishop: { symbols: "♗♝", moves: [{ x: 1, y: 1 }], rider: true },
+          knight: { symbols: "♘♞", moves: [{ x: 2, y: 1 }], rider: false },
+          pawn: {
+              symbols: "♙♟",
+              moves: [{ x: 0, y: 1 }],
+              firstMoves: [{ x: 0, y: 2 }],
+              directional: true,
+              captures: [{ x: 1, y: 1 }, { x: -1, y: 1 }],
+              enPassants:["pawn"],
+              rider: false,
+              promotion: { types: ["rook", "knight", "bishop", "queen"], condition: (piece) => ((piece.color == "white") && (piece.y >= 7.8)) || ((piece.color == "black") && (piece.y <= 1.2)) }
+          },
+      };
+
+
+
+      // Initialize piece positions with random noise
+      let pieces = [
+          { type: 'rook', x: 1, y: 1, color: 'white' },
+          { type: 'knight', x: 2, y: 1, color: 'white' },
+          { type: 'bishop', x: 3, y: 1, color: 'white' },
+          { type: 'queen', x: 4, y: 1, color: 'white' },
+          { type: 'king', x: 5, y: 1, color: 'white' },
+          { type: 'bishop', x: 6, y: 1, color: 'white' },
+          { type: 'knight', x: 7, y: 1, color: 'white' },
+          { type: 'rook', x: 8, y: 1, color: 'white' },
+
+          { type: 'pawn', x: 1, y: 2, color: 'white' },
+          { type: 'pawn', x: 2, y: 2, color: 'white' },
+          { type: 'pawn', x: 3, y: 2, color: 'white' },
+          { type: 'pawn', x: 4, y: 2, color: 'white' },
+          { type: 'pawn', x: 5, y: 2, color: 'white' },
+          { type: 'pawn', x: 6, y: 2, color: 'white' },
+          { type: 'pawn', x: 7, y: 2, color: 'white' },
+          { type: 'pawn', x: 8, y: 2, color: 'white' },
+
+
+          { type: 'pawn', x: 1, y: 7, color: 'black' },
+          { type: 'pawn', x: 2, y: 7, color: 'black' },
+          { type: 'pawn', x: 3, y: 7, color: 'black' },
+          { type: 'pawn', x: 4, y: 7, color: 'black' },
+          { type: 'pawn', x: 5, y: 7, color: 'black' },
+          { type: 'pawn', x: 6, y: 7, color: 'black' },
+          { type: 'pawn', x: 7, y: 7, color: 'black' },
+          { type: 'pawn', x: 8, y: 7, color: 'black' },
+
+          { type: 'rook', x: 1, y: 8, color: 'black' },
+          { type: 'knight', x: 2, y: 8, color: 'black' },
+          { type: 'bishop', x: 3, y: 8, color: 'black' },
+          { type: 'queen', x: 4, y: 8, color: 'black' },
+          { type: 'king', x: 5, y: 8, color: 'black' },
+          { type: 'bishop', x: 6, y: 8, color: 'black' },
+          { type: 'knight', x: 7, y: 8, color: 'black' },
+          { type: 'rook', x: 8, y: 8, color: 'black' },
+      ];
+
+      function randomNoise() { return (Math.random() - 0.5) * 0.2; }
+      for (let piece of pieces) { piece.x += randomNoise();
+          piece.y += randomNoise(); }
+
+      let sideToMove = "white";
+
+      function drawCircle(boardx, boardy, r, color) {
+          let x = boardx * scaling;
+          let y = boardSize - boardy * scaling;
+          ctx.beginPath();
+          ctx.arc(x, y, r, 0, 2 * Math.PI);
+          ctx.fillStyle = color;
+          ctx.fill();
+      }
+
+      function drawPiece(boardx, boardy, r, color, type) {
+          let x = boardx * scaling;
+          let y = boardSize - boardy * scaling;
+          ctx.beginPath();
+          ctx.arc(x, y, r, 0, 2 * Math.PI);
+          let drawColor = (color === 'white' ? '#fff' : '#000');
+          ctx.fillStyle = drawColor;
+          ctx.strokeStyle = drawColor;
+          //ctx.fill();
+          ctx.stroke();
+          let symbolSize = Math.floor(r * 2.5);
+          ctx.font = symbolSize + "px serif";
+          let symbols = pieceTypes[type].symbols;
+          //let symbol=(color=="white")?symbols[0]:symbols[1];
+          let symbol = symbols[1];
+          ctx.strokeStyle = '#555';
+
+          ctx.fillText(symbol, x - symbolSize / 2 + 3, y + symbolSize / 2 - 8);
+          if (color == "white") {
+              //ctx.strokeText(symbols[1], x - symbolSize / 2 + 3, y + symbolSize / 2 - 8);
+              ctx.fillStyle = "#000";
+              ctx.fillText(symbols[0], x - symbolSize / 2 + 3, y + symbolSize / 2 - 8);
+          }
+      }
+
+
+
+
+      function drawBoard() {
+          function drawCheckerboard(rows, cols,margin) {
+            let w=(boardSize-margin*2)/cols;
+            let h=(boardSize-margin*2)/rows;
+            for (let i = 0; i < rows; ++i) {
+                for (let j = 0; j < cols; ++j) {
+                  if((i+j)%2==0){ctx.fillStyle = '#fbf9e8';}
+                  else{ctx.fillStyle = '#f0d9b5';}
+                    ctx.fillRect(j * w+margin, i* h +margin, w, h);
+                }
+            }
+          }
+          ctx.clearRect(0, 0, boardSize, boardSize);
+          // Draw background
+
+          ctx.fillStyle = '#eacda6';
+          ctx.fillRect(0, 0, boardSize, boardSize);
+          drawCheckerboard(8,8,boardSize/20);
+
+          // Draw pieces
+          if (obstaclePiece) {
+              //draw original position and allowed movement
+              drawCircle(obstaclePiece.x, obstaclePiece.y, pieceRadius, "#FF9");
+
+          }
+          if (selectedPiece) {
+              //draw original position and allowed movement
+              drawCircle(selectedPiece.oldX, selectedPiece.oldY, pieceRadius, selectedPiece.color);
+
+          }
+          pieces.forEach(piece => {
+              if (piece == selectedPiece) {
+                  //show whether move is allowed
+                  let allowed = validateMoveOrCapture(selectedPiece, selectedPiece, {
+                      x: selectedPiece.oldX,
+                      y: selectedPiece.oldY
+                  });
+                  if(allowed){lastGoodTargetLocation={x: selectedPiece.x,  y: selectedPiece.y};}
+                  if(lastGoodTargetLocation){
+                     let snapping=(Math.hypot(lastGoodTargetLocation.x-selectedPiece.x,lastGoodTargetLocation.y- selectedPiece.y) <= 1);
+                    drawCircle(lastGoodTargetLocation.x, lastGoodTargetLocation.y, pieceRadius, snapping?"#bf9":"#ef9" );
+                  }//draw last good target to snap to
+                  drawCircle(selectedPiece.x, selectedPiece.y, pieceRadius, allowed ? "#9F9" : "#F99");
+              }
+              drawPiece(piece.x, piece.y, pieceRadius, piece.color, piece.type)
+          });
+
+
+
+      }
+
+      // Handle dragging pieces
+      canvas.addEventListener('mousedown', (e) => {
+          const {
+              offsetX,
+              offsetY
+          } = e;
+          selectedPiece = pieces.find(
+
+              piece => Math.hypot(piece.x * scaling - offsetX, (boardSize - piece.y * scaling) - offsetY) <= pieceRadius
+          );
+          if (selectedPiece) {
+              selectedPiece.oldX = selectedPiece.x;
+              selectedPiece.oldY = selectedPiece.y;
+          }
+      });
+
+      canvas.addEventListener('mousemove', (e) => {
+          if (selectedPiece) {
+              selectedPiece.x = e.offsetX / scaling;
+              selectedPiece.y = (boardSize - e.offsetY) / scaling;
+              drawBoard();
+          }
+      });
+
+      function validateMoveOrCapture(piece, target, source) {
+          let capturedPiece = pieces.find(
+              p => (p != piece) && (Math.hypot(p.x - target.x, p.y - target.y) <= pieceRadius / scaling)
+          );
+          if ((!capturedPiece) && Math.hypot(source.x - target.x, source.y - target.y) <= marginOfError) { return true; }
+
+          if (capturedPiece && (capturedPiece.color == selectedPiece.color)) {
+              return false;
+          }
+          //en passant special move
+          if(pieceTypes[piece.type].enPassants){
+            if(moves.length>0&&(pieceTypes[piece.type].enPassants.indexOf(moves[moves.length-1].piece.type)>-1)){
+              let lastMove=moves[moves.length-1],lastSource=lastMove.source,lastTarget=lastMove.target;
+              if(pointToLineDistance(target, lastSource, lastTarget)<=0.5+marginOfError){
+                capturedPiece=lastMove.piece;//validateMove doesn't check captured piece location so it's fine
+              }
+            }
+          }
+          let isValidMove = validateMove(piece, target, source, capturedPiece);
+          if (!isValidMove) {
+              return false;
+          }
+          return {capturedPiece};
+      }
+
+      canvas.addEventListener('mouseup', (e) => {
+          if (selectedPiece) {
+              let target = {
+                  x: selectedPiece.x,
+                  y: selectedPiece.y
+              };
+              let source = {
+                  x: selectedPiece.oldX,
+                  y: selectedPiece.oldY
+              };
+              //snap to last good target if it's close
+              if(lastGoodTargetLocation && Math.hypot(lastGoodTargetLocation.x - target.x, lastGoodTargetLocation.y - target.y)<1){target=lastGoodTargetLocation;}
+              selectedPiece.x = selectedPiece.oldX;
+              selectedPiece.y = selectedPiece.oldY;
+              //console.log("trying a move " + target.x + ", " + target.y);
+              let capturedPiece = pieces.find(
+                  piece => (piece != selectedPiece) && Math.hypot(piece.x - target.x, piece.y - target.y) <= pieceRadius / scaling
+              );
+              //allow adjustment without moving
+              if ((!capturedPiece) && Math.hypot(source.x - target.x, source.y - target.y) <= marginOfError) {
+                  selectedPiece.x = target.x;
+                  selectedPiece.y = target.y;
+                  selectedPiece = null;
+                  lastGoodTargetLocation=null;
+                  drawBoard();
+                  return;
+              }
+              let result = validateMoveOrCapture(selectedPiece, target, source);
+
+              if (!result) {
+                  selectedPiece = null;
+                  lastGoodTargetLocation=null;
+                  drawBoard();
+                  return;
+              }
+              selectedPiece.x = target.x;
+              selectedPiece.y = target.y;
+              if (result.capturedPiece) {
+                  let index = pieces.indexOf(result.capturedPiece);
+                  pieces.splice(index, 1);
+              }
+              if (moves.length != currentMoveIndex) { moves.length = currentMoveIndex + 1; }
+              let move = {
+                  source: source,
+                  target: target,
+                  piece: selectedPiece,
+                  capturedPiece: result.capturedPiece
+              };
+              if (result.capturedPiece) {
+                  move.capturedLocation = { x: result.capturedPiece.x, y: result.capturedPiece.y };
+              }
+
+              moves.push(move);
+              currentMoveIndex++;
+              let pieceType = pieceTypes[selectedPiece.type];
+              if (pieceType.promotion && pieceType.promotion.condition(selectedPiece)) {
+                  showPromotionMenu(selectedPiece);
+              }
+              if (sideToMove == "white") { sideToMove = "black"; } else { sideToMove = "white"; }
+              selectedPiece = null;
+              lastGoodTargetLocation=null;
+              drawBoard();
+              renderMoves();
+          }
+      });
+
+      function showPromotionMenu(piece) {
+          document.getElementById('promotionMenu').style.display = 'block';
+          let pieceType = pieceTypes[piece.type];
+          let promotionContainer = document.getElementById('promotionContainer');
+          promotionContainer.innerHTML = '';
+          pieceType.promotion.types.forEach((type, index) => {
+              const typeElement = document.createElement('button');
+              typeElement.textContent = type;
+              typeElement.onclick = () => promotePiece(piece, pieceType.promotion.types[index]);
+              promotionContainer.appendChild(typeElement);
+          });
+      }
+
+      function promotePiece(piece, type) {
+          let move = moves[moves.length - 1];
+          move.promoteType = type;
+          move.originalType = piece.type;
+          piece.type = type;
+          drawBoard();
+          document.getElementById('promotionMenu').style.display = 'none';
+      }
+
+      function pointToLineDistance(point, lineStart, lineEnd) {
+          const A = point.x - lineStart.x;
+          const B = point.y - lineStart.y;
+          const C = lineEnd.x - lineStart.x;
+          const D = lineEnd.y - lineStart.y;
+          const dot = A * C + B * D;
+          const lenSq = C * C + D * D;
+          let param = -1;
+          if (lenSq !== 0) {
+              param = dot / lenSq;
+          }
+          let xx, yy;
+          if (param < 0) {
+              xx = lineStart.x;
+              yy = lineStart.y;
+          } else if (param > 1) {
+              xx = lineEnd.x;
+              yy = lineEnd.y;
+          } else {
+              xx = lineStart.x + param * C;
+              yy = lineStart.y + param * D;
+          }
+          const dx = point.x - xx;
+          const dy = point.y - yy;
+          return Math.sqrt(dx * dx + dy * dy);
+      }
+
+      // Validate move based on piece type and tolerances
+      function validateMove(piece, target, source, pieceToCapture) {
+          let type = piece.type,
+              x = source.x,
+              y = source.y;
+
+          let {
+              rider,
+              directional,
+              captures,
+              enPassants
+          } = pieceTypes[type];
+          let possibleMoves=pieceTypes[type].moves;
+
+          //first move handling
+          let pastMove = moves.find(
+              m => (m.piece == piece)
+          );
+          if ((!pastMove) && pieceTypes[type].firstMoves) {
+              possibleMoves = [].concat(possibleMoves).concat(pieceTypes[type].firstMoves);
+          }
+          if (pieceToCapture && captures) {
+              possibleMoves = captures;
+          }
+          let vectors = [];
+
+          if (directional) {
+              for (move of possibleMoves) {
+                  vectors.push(move);
+              }
+          } else {
+              for (move of possibleMoves) {
+                  vectors.push(move);
+                  if (directional) { continue; }
+                  if (move.x != 0) { vectors.push({ x: -move.x, y: move.y }); }
+                  if (move.y != 0) { vectors.push({ x: move.x, y: -move.y }); }
+                  if (move.x != 0 && move.y != 0) { vectors.push({ x: -move.x, y: -move.y }); }
+                  if (move.y != move.x) { vectors.push({ x: move.y, y: move.x }); }
+                  if (move.y != move.x && move.y != 0) { vectors.push({ x: -move.y, y: move.x }); }
+                  if (move.y != move.x && move.x != 0) { vectors.push({ x: move.y, y: -move.x }); }
+                  if (move.y != move.x && move.x != 0 && move.y != 0) { vectors.push({ x: -move.y, y: -move.x }); }
+              }
+          }
+
+          let movex = target.x - x,
+              movey = target.y - y;
+          if (piece.color == "black") {
+              movex *= -1;
+              movey *= -1;
+          }
+          if (rider) {
+              obstaclePiece = null;
+              for (move of vectors) {
+                  let angle1 = (movex == 0) ? (Math.PI * Math.sign(movey) + Math.PI / 2) : Math.atan(movey / movex);
+                  let angle2 = (move.x == 0) ? (Math.PI * Math.sign(move.y) + Math.PI / 2) : Math.atan(move.y / move.x);
+                  let angle = angle2 - angle1;
+                  if (Math.min(Math.abs(angle), Math.abs(Math.PI * 2 - angle)) < marginOfError) {
+                      //direction OK, test for obstacles
+                      let obstacle = pieces.find(
+                          p => (p != piece) && (p != pieceToCapture) && (pointToLineDistance(p, target, source) <= 2 * pieceRadius / scaling)
+                      );
+                      if (obstacle) {
+                          obstaclePiece = obstacle; //for displaying obstacle
+                          continue;
+                      } else {
+                          obstaclePiece = null;
+                          return true;
+                      }
+
+                  }
+              }
+          } else {
+              for (move of vectors) {
+                  if ((Math.abs(movey - move.y) < marginOfError && Math.abs(movex - move.x) < marginOfError)) {
+                      return true;
+                  }
+              }
+          }
+          return false;
+      }
+
+      drawBoard();
+
+    </script>
+</body>
+</html>
