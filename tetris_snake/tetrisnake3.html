@@ -68,37 +68,55 @@
     <script>
     // Device and display setup
         const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-        const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d');
 
-        // Responsive sizing
-        function setupCanvas() {
-            const container = document.getElementById('game-container');
-            const maxWidth = isMobile ? window.innerWidth - 20 : 400;
-            const maxHeight = window.innerHeight - 100;
+        // Device and display setup
+                const canvas = document.getElementById('gameCanvas');
+                const ctx = canvas.getContext('2d');
 
-            // Calculate optimal block size
-            const optimalBlockSize = isMobile ? 20 : 25;
+                // Check if device supports touch
+                const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 
-            // Calculate grid dimensions
-            let gridWidth = Math.floor(maxWidth / optimalBlockSize);
-            let gridHeight = Math.floor(maxHeight / optimalBlockSize);
+                // Get physical size in mm (approximate)
+                function getPhysicalSize() {
+                    const dpi = window.devicePixelRatio * 96;
+                    const widthMM = window.innerWidth / dpi * 25.4;
+                    const heightMM = window.innerHeight / dpi * 25.4;
+                    return { widthMM, heightMM };
+                }
 
-            // Ensure minimum playable size
-            gridWidth = Math.max(10, Math.min(gridWidth, 20));
-            gridHeight = Math.max(15, Math.min(gridHeight, 30));
+                // Responsive sizing
+                function setupCanvas() {
+                    const { widthMM } = getPhysicalSize();
+                    const isSmallScreen = widthMM < 200; // Consider screens smaller than 200mm (~7.8 inches) as small
 
-            // Set actual canvas size
-            canvas.width = gridWidth * optimalBlockSize;
-            canvas.height = gridHeight * optimalBlockSize;
+                    // Show/hide touch controls based on touch support
+                    document.getElementById('touch-controls').style.display = isTouch ? 'block' : 'none';
 
-            return {
-                BLOCK_SIZE: optimalBlockSize,
-                GRID_WIDTH: gridWidth,
-                GRID_HEIGHT: gridHeight
-            };
-        }
+                    const container = document.getElementById('game-container');
+                    const maxWidth = isSmallScreen ? window.innerWidth - 20 : 400;
+                    const maxHeight = window.innerHeight - 100;
 
+                    // Calculate optimal block size
+                    const optimalBlockSize = isSmallScreen ? 20 : 25;
+
+                    // Calculate grid dimensions
+                    let gridWidth = Math.floor(maxWidth / optimalBlockSize);
+                    let gridHeight = Math.floor(maxHeight / optimalBlockSize);
+
+                    // Ensure minimum playable size
+                    gridWidth = Math.max(10, Math.min(gridWidth, 20));
+                    gridHeight = Math.max(15, Math.min(gridHeight, 30));
+
+                    // Set actual canvas size
+                    canvas.width = gridWidth * optimalBlockSize;
+                    canvas.height = gridHeight * optimalBlockSize;
+
+                    return {
+                        BLOCK_SIZE: optimalBlockSize,
+                        GRID_WIDTH: gridWidth,
+                        GRID_HEIGHT: gridHeight
+                    };
+                }
         // Get initial dimensions
         const { BLOCK_SIZE, GRID_WIDTH, GRID_HEIGHT } = setupCanvas();
 
@@ -648,97 +666,109 @@
        const SWIPE_THRESHOLD = 30; // Minimum swipe distance
        const MAX_SWIPE_TIME = 300; // Maximum time for a swipe in ms
 
-       // Check if touch is near the current Tetris piece
-       function isTouchNearTetris(x, y) {
-           const pieceCenter = {
-               x: (currentPiece.x + currentPiece.shape[0].length / 2) * BLOCK_SIZE,
-               y: (currentPiece.y + currentPiece.shape.length / 2) * BLOCK_SIZE
-           };
-           const distance = Math.sqrt(
-               Math.pow(x - pieceCenter.x, 2) +
-               Math.pow(y - pieceCenter.y, 2)
-           );
-           return distance < BLOCK_SIZE * 4; // Detect touches within 4 blocks of piece center
-       }
+       // Get precise canvas coordinates
+        function getCanvasCoordinates(event) {
+            const rect = canvas.getBoundingClientRect();
+            const touch = event.touches[0];
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
 
-       // Convert canvas coordinates to game grid
-       function getCanvasCoordinates(event) {
-           const rect = canvas.getBoundingClientRect();
-           return {
-               x: event.touches[0].clientX - rect.left,
-               y: event.touches[0].clientY - rect.top
-           };
-       }
+            return {
+                x: (touch.clientX - rect.left) * scaleX,
+                y: (touch.clientY - rect.top) * scaleY
+            };
+        }
 
-       // Handle touch start
-       canvas.addEventListener('touchstart', (event) => {
-           event.preventDefault();
-           const touch = getCanvasCoordinates(event);
-           touchStart = touch;
-           touchStartTime = Date.now();
-       }, { passive: false });
+        // Check if touch is near the current Tetris piece
+        function isTouchNearTetris(x, y) {
+            const pieceCenter = {
+                x: (currentPiece.x + currentPiece.shape[0].length / 2) * BLOCK_SIZE,
+                y: (currentPiece.y + currentPiece.shape.length / 2) * BLOCK_SIZE
+            };
+            const distance = Math.sqrt(
+                Math.pow(x - pieceCenter.x, 2) +
+                Math.pow(y - pieceCenter.y, 2)
+            );
+            return distance < BLOCK_SIZE * 4;
+        }
 
-       // Handle touch end
-       canvas.addEventListener('touchend', (event) => {
-           event.preventDefault();
-           if (!touchStart || !touchStartTime) return;
+        // Touch event handlers
+        if (isTouch) {
+            canvas.addEventListener('touchstart', (event) => {
+                event.preventDefault();
+                const touch = getCanvasCoordinates(event);
+                touchStart = touch;
+                touchStartTime = Date.now();
+            }, { passive: false });
 
-           const touch = getCanvasCoordinates(event);
-           const touchDuration = Date.now() - touchStartTime;
+            canvas.addEventListener('touchend', (event) => {
+                event.preventDefault();
+                if (!touchStart || !touchStartTime) return;
 
-           // Calculate swipe
-           const swipeX = touch.x - touchStart.x;
-           const swipeY = touch.y - touchStart.y;
+                const touch = getCanvasCoordinates(event);
+                const touchDuration = Date.now() - touchStartTime;
 
-           // Only process if it's a legitimate swipe
-           if (touchDuration <= MAX_SWIPE_TIME &&
-               (Math.abs(swipeX) > SWIPE_THRESHOLD || Math.abs(swipeY) > SWIPE_THRESHOLD)) {
+                // Calculate swipe
+                const swipeX = touch.x - touchStart.x;
+                const swipeY = touch.y - touchStart.y;
 
-               // Determine if this is a Tetris or Snake control
-               const isTetrisControl = isTouchNearTetris(touchStart.x, touchStart.y);
+                // Only process if it's a legitimate swipe
+                if (touchDuration <= MAX_SWIPE_TIME &&
+                    (Math.abs(swipeX) > SWIPE_THRESHOLD || Math.abs(swipeY) > SWIPE_THRESHOLD)) {
 
-               if (isTetrisControl) {
-                   // Handle Tetris controls
-                   if (Math.abs(swipeX) > Math.abs(swipeY)) {
-                       // Horizontal swipe
-                       movePiece(swipeX > 0 ? 1 : -1, 0);
-                   } else if (swipeY > 0) {
-                       // Downward swipe
-                       movePiece(0, 1);
-                   } else {
-                       // Upward swipe
-                       rotatePiece();
-                   }
-               } else {
-                   // Handle Snake controls
-                   if (Math.abs(swipeX) > Math.abs(swipeY)) {
-                       // Horizontal swipe
-                       if (snake.direction.x === 0) {
-                           snake.direction = {
-                               x: swipeX > 0 ? 1 : -1,
-                               y: 0
-                           };
-                       }
-                   } else {
-                       // Vertical swipe
-                       if (snake.direction.y === 0) {
-                           snake.direction = {
-                               x: 0,
-                               y: swipeY > 0 ? 1 : -1
-                           };
-                       }
-                   }
-               }
-           }
+                    // Determine if this is a Tetris or Snake control
+                    const isTetrisControl = isTouchNearTetris(touchStart.x, touchStart.y);
 
-           touchStart = null;
-           touchStartTime = null;
-       }, { passive: false });
+                    if (isTetrisControl) {
+                        // Handle Tetris controls
+                        if (Math.abs(swipeX) > Math.abs(swipeY)) {
+                            // Horizontal swipe
+                            movePiece(swipeX > 0 ? 1 : -1, 0);
+                        } else if (swipeY > 0) {
+                            // Downward swipe
+                            movePiece(0, 1);
+                        } else {
+                            // Upward swipe
+                            rotatePiece();
+                        }
+                    } else {
+                        // Handle Snake controls
+                        if (Math.abs(swipeX) > Math.abs(swipeY)) {
+                            // Horizontal swipe
+                            if (snake.direction.x === 0) {
+                                snake.direction = {
+                                    x: swipeX > 0 ? 1 : -1,
+                                    y: 0
+                                };
+                            }
+                        } else {
+                            // Vertical swipe
+                            if (snake.direction.y === 0) {
+                                snake.direction = {
+                                    x: 0,
+                                    y: swipeY > 0 ? 1 : -1
+                                };
+                            }
+                        }
+                    }
+                }
 
-       // Prevent scrolling while touching the canvas
-       canvas.addEventListener('touchmove', (event) => {
-           event.preventDefault();
-       }, { passive: false });
+                touchStart = null;
+                touchStartTime = null;
+            }, { passive: false });
+
+            canvas.addEventListener('touchmove', (event) => {
+                event.preventDefault();
+            }, { passive: false });
+
+            // Also handle tap to restart
+            canvas.addEventListener('touchstart', (event) => {
+                if (gameOver) {
+                    event.preventDefault();
+                    init();
+                }
+            }, { passive: false });
+        }
 
        // Add touch UI feedback
        function drawSwipe() {
