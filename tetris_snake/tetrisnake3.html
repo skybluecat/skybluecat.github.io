@@ -18,6 +18,7 @@
             overflow: hidden;
         }
         #game-container {
+            touch-action: none;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -29,7 +30,7 @@
         canvas {
             border: 2px solid #333;
             margin: 10px;
-            touch-action: none;
+
         }
         #game-info {
             font-size: 20px;
@@ -57,17 +58,22 @@
     </style>
 </head>
 <body>
+
     <div id="game-info">
+      <div id="game-stats">
         Score: <span id="score">0</span> | Lives: <span id="lives">3</span>
+      </div>
+        <div id="touch-controls">
+          Swipe near piece to control Tetris<br>
+          Swipe anywhere else to control snake
+        </div>
     </div>
     <canvas id="gameCanvas" width="300" height="600"></canvas>
-    <div id="touch-controls">
-      Swipe near piece to control Tetris<br>
-      Swipe anywhere else to control snake
-    </div>
+
     <script>
     // Device and display setup
-        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
 
         // Device and display setup
                 const canvas = document.getElementById('gameCanvas');
@@ -560,7 +566,7 @@
                 );
             });
 
-            drawSwipe();
+            drawTouchIndicator();
 
             // Draw game over
             if (gameOver) {drawGameOver();}
@@ -663,13 +669,13 @@
           // Touch handling
        let touchStart = null;
        let touchStartTime = null;
-       const SWIPE_THRESHOLD = 30; // Minimum swipe distance
-       const MAX_SWIPE_TIME = 300; // Maximum time for a swipe in ms
+       const SWIPE_THRESHOLD = 10; // Minimum swipe distance
+       const MAX_SWIPE_TIME = 500; // Maximum time for a swipe in ms
 
        // Get precise canvas coordinates
         function getCanvasCoordinates(event) {
             const rect = canvas.getBoundingClientRect();
-            const touch = event.touches[0];
+            const touch = (isTouch)?event.touches[0]:event;
             const scaleX = canvas.width / rect.width;
             const scaleY = canvas.height / rect.height;
 
@@ -696,7 +702,13 @@
         if (isTouch) {
             canvas.addEventListener('touchstart', (event) => {
                 event.preventDefault();
+                if (gameOver) {
+                    event.preventDefault();
+                    init();
+                    return;
+                }
                 const touch = getCanvasCoordinates(event);
+                console.log()
                 touchStart = touch;
                 touchStartTime = Date.now();
             }, { passive: false });
@@ -761,17 +773,88 @@
                 event.preventDefault();
             }, { passive: false });
 
-            // Also handle tap to restart
-            canvas.addEventListener('touchstart', (event) => {
-                if (gameOver) {
-                    event.preventDefault();
-                    init();
-                }
-            }, { passive: false });
+        }
+        else{
+          canvas.addEventListener('mousedown', (event) => {
+            console.log("drag start");
+              event.preventDefault();
+              const touch = getCanvasCoordinates(event);
+              touchStart = touch;
+              touchStartTime = Date.now();
+          });
+
+          canvas.addEventListener('mouseup', (event) => {
+
+              event.preventDefault();
+              if (!touchStart || !touchStartTime) return;
+              console.log("drag end");
+              const touch = getCanvasCoordinates(event);
+              const touchDuration = Date.now() - touchStartTime;
+
+              // Calculate swipe
+              const swipeX = touch.x - touchStart.x;
+              const swipeY = touch.y - touchStart.y;
+
+              // Only process if it's a legitimate swipe
+              if (touchDuration <= MAX_SWIPE_TIME &&
+                  (Math.abs(swipeX) > SWIPE_THRESHOLD || Math.abs(swipeY) > SWIPE_THRESHOLD)) {
+
+                  // Determine if this is a Tetris or Snake control
+                  const isTetrisControl = isTouchNearTetris(touchStart.x, touchStart.y);
+
+                  if (isTetrisControl) {
+                      // Handle Tetris controls
+                      if (Math.abs(swipeX) > Math.abs(swipeY)) {
+                          // Horizontal swipe
+                          movePiece(swipeX > 0 ? 1 : -1, 0);
+                      } else if (swipeY > 0) {
+                          // Downward swipe
+                          movePiece(0, 1);
+                      } else {
+                          // Upward swipe
+                          rotatePiece();
+                      }
+                  } else {
+                      // Handle Snake controls
+                      if (Math.abs(swipeX) > Math.abs(swipeY)) {
+                          // Horizontal swipe
+                          if (snake.direction.x === 0) {
+                              snake.direction = {
+                                  x: swipeX > 0 ? 1 : -1,
+                                  y: 0
+                              };
+                          }
+                      } else {
+                          // Vertical swipe
+                          if (snake.direction.y === 0) {
+                              snake.direction = {
+                                  x: 0,
+                                  y: swipeY > 0 ? 1 : -1
+                              };
+                          }
+                      }
+                  }
+              }
+
+              touchStart = null;
+              touchStartTime = null;
+          });
+
+          canvas.addEventListener('mousemove', (event) => {
+              event.preventDefault();
+          });
+
+          // Also handle tap to restart
+          canvas.addEventListener('click', (event) => {
+              if (gameOver) {
+                  event.preventDefault();
+                  init();
+              }
+          });
         }
 
        // Add touch UI feedback
-       function drawSwipe() {
+       function drawTouchIndicator() {
            // Draw touch indicator near Tetris piece
            if (touchStart && isTouchNearTetris(touchStart.x, touchStart.y)) {
                ctx.strokeStyle = '#ffffff';
