@@ -101,7 +101,7 @@
 
                     // Calculate optimal block size
                     const dpi=window.devicePixelRatio * 96;
-                    const optimalBlockSize = isSmallScreen ? Math.max(Math.floor(0.125*dpi),20) : Math.max(Math.floor(0.2*dpi),25);
+                    const optimalBlockSize = isSmallScreen ? Math.max(Math.floor(0.15*dpi),20) : Math.max(Math.floor(0.2*dpi),25);
 
                     // Calculate grid dimensions
                     let gridWidth = Math.floor(maxWidth / optimalBlockSize);
@@ -673,7 +673,7 @@
        // Get precise canvas coordinates
         function getCanvasCoordinates(event) {
             const rect = canvas.getBoundingClientRect();
-            const touch = (isTouch)?(event.touches[0] || event.changedTouches[0]):event;
+            const touch = (isTouch)?((event.touches.length>0)?event.touches[0]:event.changedTouches[0]):event;
             const scaleX = canvas.width / rect.width;
             const scaleY = canvas.height / rect.height;
 
