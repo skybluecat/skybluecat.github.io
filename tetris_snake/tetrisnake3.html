@@ -673,7 +673,7 @@
        // Get precise canvas coordinates
         function getCanvasCoordinates(event) {
             const rect = canvas.getBoundingClientRect();
-            const touch = (isTouch)?event.touches[0]:event;
+            const touch = (isTouch)?(event.touches[0] || event.changedTouches[0]):event;
             const scaleX = canvas.width / rect.width;
             const scaleY = canvas.height / rect.height;
 
