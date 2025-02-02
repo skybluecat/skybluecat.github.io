@@ -38,9 +38,6 @@
             text-align: center;
         }
         #touch-controls {
-            position: fixed;
-            top: 20px;
-            right: 20px;
             background: rgba(255, 255, 255, 0.2);
             padding: 10px;
             border-radius: 5px;
@@ -103,7 +100,8 @@
                     const maxHeight = window.innerHeight - 100;
 
                     // Calculate optimal block size
-                    const optimalBlockSize = isSmallScreen ? 20 : 25;
+                    const dpi=window.devicePixelRatio * 96;
+                    const optimalBlockSize = isSmallScreen ? Math.max(Math.floor(0.125*dpi),20) : Math.max(Math.floor(0.2*dpi),25);
 
                     // Calculate grid dimensions
                     let gridWidth = Math.floor(maxWidth / optimalBlockSize);
